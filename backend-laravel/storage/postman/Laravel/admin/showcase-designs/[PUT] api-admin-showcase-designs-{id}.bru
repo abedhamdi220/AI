@@ -1,0 +1,24 @@
+meta {
+  name: [PUT] api/admin/showcase-designs/{id}
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{base_url}}/api/admin/showcase-designs/:id
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,24 @@
+meta {
+  name: [GET] api/admin/users
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/admin/users
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+settings {
+  encodeUrl: true
+}

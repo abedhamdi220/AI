@@ -1,0 +1,24 @@
+meta {
+  name: [GET] api/admin/orders
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/admin/orders
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+settings {
+  encodeUrl: true
+}

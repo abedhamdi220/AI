@@ -1,0 +1,24 @@
+meta {
+  name: [POST] api/designs/enhance-prompt
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/designs/enhance-prompt
+  body: none
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+settings {
+  encodeUrl: true
+}

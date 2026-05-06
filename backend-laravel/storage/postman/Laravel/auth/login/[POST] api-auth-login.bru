@@ -1,0 +1,27 @@
+meta {
+  name: [POST] api/auth/login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/auth/login
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+      "username": "sample_text",
+      "password": "sample_text"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
