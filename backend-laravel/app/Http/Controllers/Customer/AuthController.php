@@ -93,7 +93,7 @@ class AuthController extends Controller
         return $this->respondWithToken(auth('api')->refresh(), auth('api')->user());
     }
 
-   
+
     protected function respondWithToken($token, $user, $status = 200)
     {
         return response()->json([

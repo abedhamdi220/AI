@@ -20,7 +20,16 @@ class DesignController extends Controller
     {
         $this->designService = $designService;
     }
-
+ public function sizeChart()
+    {
+        return response()->json([
+            'S' => 'Small',
+            'M' => 'Medium',
+            'L' => 'Large',
+            'XL' => 'Extra Large',
+            'XXL' => 'Double Extra Large'
+        ]);
+    }
     public function enhancePrompt(Request $request)
     {
         try {
@@ -109,7 +118,17 @@ class DesignController extends Controller
         catch (Exception $e)
         {
 
+//  $status = $e->getCode() ?: 500;
+//             if ($status == 400) {
+//                 return response()->json(['detail' => 'الوصف غير مناسب. يرجى تعديله والمحاولة مرة أخرى.'], 400);
+//             }
+//             if ($status == 429) {
+//                 return response()->json(['detail' => 'تم تجاوز الحد المسموح. يرجى الانتظار والمحاولة لاحقاً.'], 429);
+//             }
 
+//             // إرجاع رسالة الخطأ الفعلية بدلاً من الرسالة العامة لتسهيل تتبع المشكلة
+//             return response()->json(['detail' => $e->getMessage()], 500);
+//         }
             $status = $e->getCode() ?: 500;
             if ($status == 400) {
                 return response()->json(['detail' => 'الوصف غير مناسب. يرجى تعديله والمحاولة مرة أخرى.'], 400);
@@ -124,18 +143,21 @@ class DesignController extends Controller
     public function save(Request $request)
     {
         try {
-            $data = $request->only([
-                'prompt', 'image_base64', 'clothing_type', 'template_id',
-                'color', 'phone_number', 'user_photo_base64', 'logo_base64'
+            // 👉 استخدام ميزة Validation بدلاً من التحقق اليدوي
+            $validated = $request->validate([
+                'prompt' => 'required|string',
+                'image_base64' => 'required|string',
+                'clothing_type' => 'required|string',
+                'template_id' => 'nullable|string',
+                'color' => 'nullable|string',
+                'phone_number' => 'nullable|string',
+                'user_photo_base64' => 'nullable|string',
+                'logo_base64' => 'nullable|string'
             ]);
-
-            if (empty($data['prompt']) || empty($data['image_base64']) || empty($data['clothing_type'])) {
-                return response()->json(['detail' => 'يرجى إدخال جميع البيانات المطلوبة'], 400);
-            }
 
             $designId = (string) Str::uuid();
 
-            $design = Design::create(array_merge($data, [
+            $design = Design::create(array_merge($validated, [
                 'id' => $designId,
                 'user_id' => $request->user()->id,
                 'is_favorite' => false,
@@ -143,32 +165,29 @@ class DesignController extends Controller
 
             User::where('id', $request->user()->id)->increment('designs_used');
 
-
             $orderId = (string) Str::uuid();
             Order::create([
                 'id' => $orderId,
                 'user_id' => $request->user()->id,
                 'design_id' => $designId,
-                'design_image_base64' => $data['image_base64'],
-                'prompt' => $data['prompt'],
-                'phone_number' => $data['phone_number'] ?? 'غير محدد',
+                'design_image_base64' => $validated['image_base64'],
+                'prompt' => $validated['prompt'],
+                'phone_number' => $validated['phone_number'] ?? 'غير محدد',
                 'size' => 'M',
-                'color' => $data['color'] ?? '',
+                'color' => $validated['color'] ?? '',
                 'price' => 0,
                 'discount' => 0,
                 'final_price' => 0,
                 'status' => 'pending',
             ]);
 
-         
-            if(class_exists(Notification::class)) {
-                 Notification::create([
-                    'user_id' => $request->user()->id,
-                    'title' => 'تم حفظ التصميم بنجاح',
-                    'message' => 'تم حفظ تصميمك الجديد وإنشاء طلب. سنتواصل معك قريباً!',
-                    'type' => 'success'
-                ]);
-            }
+            // 👉 استدعاء Notification مباشرة بدون class_exists
+            Notification::create([
+                'user_id' => $request->user()->id,
+                'title' => 'تم حفظ التصميم بنجاح',
+                'message' => 'تم حفظ تصميمك الجديد وإنشاء طلب. سنتواصل معك قريباً!',
+                'type' => 'success'
+            ]);
 
             return response()->json([
                 'id' => $design->id,

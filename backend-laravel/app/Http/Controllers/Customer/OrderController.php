@@ -16,34 +16,38 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         try {
-            $data = $request->only([
-                'design_image_base64', 'prompt', 'phone_number', 'size',
-                'design_id', 'color', 'coupon_code'
+            // 👉 استخدام ميزة Validation للتحقق من البيانات وتنظيمها
+            $validated = $request->validate([
+                'design_image_base64' => 'required|string',
+                'prompt' => 'required|string',
+                'phone_number' => 'required|string',
+                'size' => 'nullable|string',
+                'design_id' => 'nullable|string',
+                'color' => 'nullable|string',
+                'coupon_code' => 'nullable|string' // 👉 إضافة حقل الكوبون كما طُلب
             ]);
 
-            if (empty($data['design_image_base64']) || empty($data['prompt']) || empty($data['phone_number'])) {
-                return response()->json(['detail' => 'يرجى إدخال جميع البيانات المطلوبة'], 400);
-            }
-
             $orderId = (string) Str::uuid();
+
             $order = Order::create([
                 'id' => $orderId,
                 'user_id' => $request->user()->id,
-                'design_id' => $data['design_id'] ?? null,
-                'design_image_base64' => $data['design_image_base64'],
-                'prompt' => $data['prompt'],
-                'phone_number' => $data['phone_number'],
-                'size' => $data['size'] ?? 'M',
-                'color' => $data['color'] ?? '',
+                'design_id' => $validated['design_id'] ?? null,
+                'design_image_base64' => $validated['design_image_base64'],
+                'prompt' => $validated['prompt'],
+                'phone_number' => $validated['phone_number'],
+                'size' => $validated['size'] ?? 'M',
+                'color' => $validated['color'] ?? '',
                 'price' => 0,
                 'discount' => 0,
                 'final_price' => 0,
                 'status' => 'pending',
-                'coupon_code' => $data['coupon_code'] ?? null,
+                'coupon_code' => $validated['coupon_code'] ?? null,
             ]);
 
-            if (!empty($data['coupon_code'])) {
-                $coupon = Coupon::where('code', strtoupper($data['coupon_code']))->first();
+            // 👉 معالجة الكوبون وتسجيل استخدامه إن وجد
+            if (!empty($validated['coupon_code'])) {
+                $coupon = Coupon::where('code', strtoupper($validated['coupon_code']))->first();
                 if ($coupon) {
                     CouponUsage::create([
                         'id' => (string) Str::uuid(),
@@ -56,15 +60,13 @@ class OrderController extends Controller
                 }
             }
 
-            // إرسال الإشعار
-            if(class_exists(Notification::class)) {
-                Notification::create([
-                    'user_id' => $request->user()->id,
-                    'title' => 'تم إرسال طلبك بنجاح! 🎉',
-                    'message' => 'سيتم التواصل معك قريباً لتأكيد الطلب والتفاصيل.',
-                    'type' => 'success'
-                ]);
-            }
+            // 👉 استدعاء Notification مباشرة بدون class_exists
+            Notification::create([
+                'user_id' => $request->user()->id,
+                'title' => 'تم إرسال طلبك بنجاح! 🎉',
+                'message' => 'سيتم التواصل معك قريباً لتأكيد الطلب والتفاصيل.',
+                'type' => 'success'
+            ]);
 
             return response()->json([
                 'success' => true,

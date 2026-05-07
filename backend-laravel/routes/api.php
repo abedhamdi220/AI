@@ -18,8 +18,6 @@ use App\Http\Controllers\NotificationController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
-
-
 /*
 |--------------------------------------------------------------------------
 | المسارات العامة (Public Routes)
@@ -35,14 +33,9 @@ Route::prefix('auth')->group(function () {
 // OAuth (from oauth.js)
 Route::post('/oauth/google', [OAuthController::class, 'google']);
 Route::post('/auth/v1/env/oauth', [OAuthController::class, 'google'])->withoutMiddleware([VerifyCsrfToken::class]);
+
 // Public Designs (from designs.js)
 Route::get('/designs/showcase', [ShowcaseController::class, 'index']);
-
-// Health Check
-// Route::get('/ping', function () {
-//     return response()->json(['status' => 'ok']);
-// });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -63,6 +56,8 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('user')->group(function () {
         Route::get('/designs', [UserController::class, 'designs']);
         Route::get('/designs-quota', [UserController::class, 'designsQuota']);
+        // 👉 مسار المقاسات الخاص بالمستخدم (مضاف حديثاً بناءً على edit.txt)
+        Route::get('/measurements', [UserController::class, 'getMeasurements']);
     });
 
     // Designs (from designs.js)
@@ -73,6 +68,8 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/', [DesignController::class, 'index']);
         Route::put('/{id}/favorite', [DesignController::class, 'toggleFavorite']);
         Route::delete('/{id}', [DesignController::class, 'destroy']);
+        // 👉 مسار جدول المقاسات (مضاف حديثاً بناءً على edit.txt)
+        Route::get('/size-chart', [DesignController::class, 'sizeChart']);
     });
 
     // Orders (from orders.js)
@@ -83,31 +80,32 @@ Route::middleware('auth:api')->group(function () {
 
     // Notifications (from notifications.js)
     Route::prefix('notifications')->group(function () {
-        Route::get('/unread-count', [NotificationController::class, 'unreadCount']); // يجب أن يكون قبل {id}
-        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']); // يجب أن يكون قبل {id}
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::put('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
         Route::get('/', [NotificationController::class, 'index']);
         Route::put('/{id}/read', [NotificationController::class, 'read']);
         Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });
 
-    // Coupons Validation (from coupons.js)
-    Route::post('/coupons/validate', [CouponController::class, 'validateCoupon']);
+    // Coupons for Users (محدثة بناءً على edit.txt لتشمل عرض الكوبونات المتاحة)
+    Route::prefix('coupons')->group(function () {
+        Route::get('/', [CouponController::class, 'index']); // 👉 عرض الكوبونات للمستخدم
+        Route::post('/validate', [CouponController::class, 'validateCoupon']);
+    });
 });
-
 
 /*
 |--------------------------------------------------------------------------
-| مسارات الكوبونات للإدارة (Admin Coupons CRUD - from coupons.js)
-| ملاحظة: في Node.js تم استخدام مسار /api/coupons بدلاً من /api/admin/coupons
+| مسارات الكوبونات للإدارة (Admin Coupons CRUD)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:api', 'is_admin'])->prefix('coupons')->group(function () {
+Route::middleware(['auth:api', 'is_admin'])->prefix('admin/coupons')->group(function () {
+    // تم تعديل المسار ليكون admin/coupons لتجنب التعارض مع مسارات المستخدم العادي
     Route::get('/', [AdminCouponController::class, 'index']);
     Route::post('/', [AdminCouponController::class, 'store']);
     Route::put('/{id}', [AdminCouponController::class, 'update']);
     Route::delete('/{id}', [AdminCouponController::class, 'destroy']);
 });
-
 
 /*
 |--------------------------------------------------------------------------

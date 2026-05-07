@@ -9,6 +9,24 @@ use Illuminate\Http\Request;
 
 class CouponController extends Controller
 {
+      public function index()
+    {
+        try {
+            $coupons = Coupon::where('is_active', true)
+                ->where('expiry_date', '>', now())
+                ->where(function ($query) {
+                    $query->whereNull('max_uses')
+                          ->orWhereRaw('current_uses < max_uses');
+                })
+                ->select('code', 'discount_percentage', 'expiry_date')
+                ->get();
+
+            return response()->json($coupons);
+        } catch (\Exception $error) {
+            \Log::error('Fetch Coupons Error: ' . $error->getMessage());
+            return response()->json(['detail' => 'خطأ في جلب الكوبونات'], 500);
+        }
+    }
  public function validateCoupon(Request $request)
     {
         try {

@@ -575,7 +575,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     className="w-full h-48 object-cover"
                   />
                   <CardContent className="p-4">
-                    <p className="font-semibold text-[#3E2723] mb-1">{design.user_info?.username}</p>
+                    <p className="font-semibold text-[#3E2723] mb-1">{design.user_name}</p>
                     <p className="text-sm text-[#5D4037] mb-2 line-clamp-2">{design.prompt}</p>
                     {design.phone_number && (
                       <p className="text-xs text-[#5D4037] flex items-center gap-1">
@@ -769,7 +769,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
                 <div>
                   <p className="font-semibold text-[#3E2723]">البريد</p>
-                  <p className="text-[#5D4037]">{viewDesignModal.design.user_info?.email}</p>
+                  <p className="text-[#5D4037]">{viewDesignModal.design.user_email}</p>
                 </div>
                 {viewDesignModal.design.phone_number && (
                   <div>
