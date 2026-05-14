@@ -13,46 +13,48 @@ use Illuminate\Support\Str;
 
 class AdminCouponController extends Controller
 {
-    public function usage($id)
-    {
-        try {
-            $coupon = Coupon::where('id', $id)->first();
+   public function usage($id)
+{
+    try {
+        $coupon = Coupon::where('id', $id)->first();
 
-            if (!$coupon) {
-                return response()->json(['detail' => 'الكوبون غير موجود'], 404);
-            }
-
-            $usages = CouponUsage::where('coupon_id', $id)->orderBy('used_at', 'desc')->get();
-
-            $usageDetails = $usages->map(function ($usage) {
-                $user = User::where('id', $usage->user_id)->select('username', 'email')->first();
-                $order = $usage->order_id ? Order::where('id', $usage->order_id)->select('final_price')->first() : null;
-
-                return [
-                    'id' => $usage->id,
-                    'user_id' => $usage->user_id,
-                    'username' => $user->username ?? 'غير معروف',
-                    'email' => $user->email ?? 'غير معروف',
-                    'order_id' => $usage->order_id,
-                    'order_amount' => $order->final_price ?? 0,
-                    'used_at' => $usage->used_at ? $usage->used_at->toIso8601String() : null,
-                ];
-            });
-
-            return response()->json([
-                'coupon_id' => $id,
-                'coupon_code' => $coupon->code,
-                'discount_percentage' => $coupon->discount_percentage,
-                'total_uses' => $usages->count(),
-                'max_uses' => $coupon->max_uses,
-                'usages' => $usageDetails,
-            ]);
-        } catch (\Exception $error) {
-            \Log::error('Get Coupon Usage Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب إحصائيات الكوبون'], 500);
+        if (!$coupon) {
+            return response()->json(['detail' => 'الكوبون المطلوب غير موجود في النظام'], 404);
         }
-    }
 
+        $usages = CouponUsage::where('coupon_id', $id)->orderBy('used_at', 'desc')->get();
+
+     
+        $userIds = $usages->pluck('user_id')->unique()->filter()->values()->all();
+        $orderIds = $usages->pluck('order_id')->unique()->filter()->values()->all();
+
+
+        $users = User::whereIn('id', $userIds)->select('id', 'username', 'email')->get()->keyBy('id');
+        $orders = Order::whereIn('id', $orderIds)->select('id', 'final_price')->get()->keyBy('id');
+
+        // 3. بناء هيكل البيانات المرجعة
+        $usageDetails = $usages->map(function ($usage) use ($users, $orders) {
+            $user = $users->get($usage->user_id);
+            $order = $usage->order_id ? $orders->get($usage->order_id) : null;
+
+            return [
+                'id' => $usage->id,
+                'user_id' => $usage->user_id,
+                'username' => $user->username ?? 'غير معروف',
+                'email' => $user->email ?? 'غير معروف',
+                'order_id' => $usage->order_id,
+                'order_amount' => $order->final_price ?? 0,
+                'used_at' => $usage->used_at ? $usage->used_at->toIso8601String() : null,
+            ];
+        });
+
+        return response()->json(['data' => $usageDetails]);
+
+    } catch (\Exception $error) {
+        \Log::error('Fetch Coupon Usages Error: ' . $error->getMessage());
+        return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب بيانات الاستخدام'], 500);
+    }
+}
     public function stats()
     {
         try {
@@ -69,6 +71,8 @@ class AdminCouponController extends Controller
                     'is_active' => $coupon->is_active,
                     'max_uses' => $coupon->max_uses,
                     'current_uses' => $usageCount,
+                    'description' => $coupon->description,
+                    'min_purchase' => $coupon->min_purchase,
                     'created_at' => $coupon->created_at ? $coupon->created_at->toIso8601String() : null,
                 ];
             });
@@ -76,10 +80,11 @@ class AdminCouponController extends Controller
             return response()->json($couponsWithStats);
         } catch (\Exception $error) {
             \Log::error('Get Coupons Stats Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب إحصائيات الكوبونات'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب إحصائيات الكوبونات'], 500);
         }
     }
-       public function index()
+
+    public function index()
     {
         try {
             $coupons = Coupon::orderBy('created_at', 'desc')->get();
@@ -93,6 +98,8 @@ class AdminCouponController extends Controller
                     'is_active' => $c->is_active,
                     'max_uses' => $c->max_uses,
                     'current_uses' => $c->current_uses,
+                    'description' => $c->description,
+                    'min_purchase' => $c->min_purchase,
                     'created_at' => $c->created_at ? $c->created_at->toIso8601String() : null,
                 ];
             });
@@ -100,7 +107,7 @@ class AdminCouponController extends Controller
             return response()->json($response);
         } catch (\Exception $error) {
             \Log::error('Get Coupons Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب الكوبونات'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة الكوبونات'], 500);
         }
     }
 
@@ -111,14 +118,16 @@ class AdminCouponController extends Controller
             $discountPercentage = $request->input('discount_percentage');
             $expiryDate = $request->input('expiry_date');
             $maxUses = $request->input('max_uses');
+            $description = $request->input('description');
+            $minPurchase = $request->input('min_purchase');
 
             if (!$code || !$discountPercentage) {
-                return response()->json(['detail' => 'يرجى إدخال كود الكوبون ونسبة الخصم'], 400);
+                return response()->json(['detail' => 'البيانات غير مكتملة: يرجى إدخال كود الكوبون ونسبة الخصم'], 400);
             }
 
             $existingCoupon = Coupon::where('code', strtoupper($code))->first();
             if ($existingCoupon) {
-                return response()->json(['detail' => 'كود الكوبون موجود بالفعل'], 400);
+                return response()->json(['detail' => 'كود الكوبون المدخل مستخدم بالفعل، يرجى اختيار كود آخر'], 400);
             }
 
             $expiryDateValue = $expiryDate ? Carbon::parse($expiryDate) : now()->addYear();
@@ -131,6 +140,8 @@ class AdminCouponController extends Controller
                 'is_active' => true,
                 'max_uses' => $maxUses ?: null,
                 'current_uses' => 0,
+                'description' => $description,
+                'min_purchase' => $minPurchase ?: null,
                 'created_at' => now(),
             ]);
 
@@ -140,7 +151,7 @@ class AdminCouponController extends Controller
             ], 201);
         } catch (\Exception $error) {
             \Log::error('Create Coupon Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في إنشاء الكوبون: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء محاولة إنشاء الكوبون'], 500);
         }
     }
 
@@ -150,7 +161,7 @@ class AdminCouponController extends Controller
             $coupon = Coupon::where('id', $id)->first();
 
             if (!$coupon) {
-                return response()->json(['detail' => 'الكوبون غير موجود'], 404);
+                return response()->json(['detail' => 'الكوبون المراد تحديثه غير موجود'], 404);
             }
 
             if ($request->has('discount_percentage')) {
@@ -166,12 +177,19 @@ class AdminCouponController extends Controller
                 $coupon->max_uses = $request->input('max_uses');
             }
 
+            if ($request->has('description')) {
+                $coupon->description = $request->input('description');
+            }
+            if ($request->has('min_purchase')) {
+                $coupon->min_purchase = $request->input('min_purchase');
+            }
+
             $coupon->save();
 
-            return response()->json(['message' => 'تم تحديث الكوبون بنجاح']);
+            return response()->json(['message' => 'تم تحديث بيانات الكوبون بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Update Coupon Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تحديث الكوبون: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تحديث بيانات الكوبون'], 500);
         }
     }
 
@@ -181,13 +199,13 @@ class AdminCouponController extends Controller
             $result = Coupon::where('id', $id)->delete();
 
             if ($result === 0) {
-                return response()->json(['detail' => 'الكوبون غير موجود'], 404);
+                return response()->json(['detail' => 'الكوبون المراد حذفه غير موجود'], 404);
             }
 
             return response()->json(['message' => 'تم حذف الكوبون بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Delete Coupon Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في حذف الكوبون'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء محاولة حذف الكوبون'], 500);
         }
     }
 }

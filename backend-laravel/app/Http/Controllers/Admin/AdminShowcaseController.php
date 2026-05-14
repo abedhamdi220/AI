@@ -36,7 +36,7 @@ class AdminShowcaseController extends Controller
             return response()->json($response);
         } catch (\Exception $error) {
             \Log::error('Get Showcase Designs Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب التصاميم الملهمة'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة التصاميم الملهمة'], 500);
         }
     }
 
@@ -46,7 +46,7 @@ class AdminShowcaseController extends Controller
             $data = $request->all();
 
             if (empty($data['title']) || empty($data['description']) || empty($data['prompt']) || empty($data['image_base64']) || empty($data['clothing_type'])) {
-                return response()->json(['detail' => 'يرجى إدخال جميع الحقول المطلوبة'], 400);
+                return response()->json(['detail' => 'البيانات غير مكتملة: يرجى إدخال جميع الحقول المطلوبة للتصميم'], 400);
             }
 
             $design = ShowcaseDesign::create([
@@ -70,7 +70,7 @@ class AdminShowcaseController extends Controller
             ], 201);
         } catch (\Exception $error) {
             \Log::error('Create Showcase Design Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في إضافة التصميم: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء إضافة التصميم الملهم'], 500);
         }
     }
 
@@ -80,7 +80,7 @@ class AdminShowcaseController extends Controller
             $design = ShowcaseDesign::where('id', $id)->first();
 
             if (!$design) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'التصميم الملهم المراد تحديثه غير موجود'], 404);
             }
 
             $fillable = ['title', 'description', 'prompt', 'image_base64', 'clothing_type', 'color', 'template_id', 'tags', 'is_featured', 'is_active'];
@@ -94,10 +94,10 @@ class AdminShowcaseController extends Controller
             $design->updated_at = now();
             $design->save();
 
-            return response()->json(['message' => 'تم تحديث التصميم بنجاح']);
+            return response()->json(['message' => 'تم تحديث التصميم الملهم بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Update Showcase Design Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تحديث التصميم: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تحديث بيانات التصميم الملهم'], 500);
         }
     }
 
@@ -107,13 +107,13 @@ class AdminShowcaseController extends Controller
             $result = ShowcaseDesign::where('id', $id)->delete();
 
             if ($result === 0) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'التصميم الملهم المراد حذفه غير موجود'], 404);
             }
 
-            return response()->json(['message' => 'تم حذف التصميم بنجاح']);
+            return response()->json(['message' => 'تم حذف التصميم الملهم بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Delete Showcase Design Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في حذف التصميم: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء محاولة حذف التصميم الملهم'], 500);
         }
     }
 
@@ -123,7 +123,7 @@ class AdminShowcaseController extends Controller
             $design = ShowcaseDesign::where('id', $id)->first();
 
             if (!$design) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'التصميم الملهم غير موجود'], 404);
             }
 
             $design->is_featured = !$design->is_featured;
@@ -133,12 +133,12 @@ class AdminShowcaseController extends Controller
             $statusText = $design->is_featured ? 'مميز' : 'عادي';
 
             return response()->json([
-                'message' => "تم تغيير حالة التصميم إلى {$statusText}",
+                'message' => "تم تغيير حالة التصميم لتصبح: {$statusText}",
                 'is_featured' => $design->is_featured,
             ]);
         } catch (\Exception $error) {
             \Log::error('Toggle Featured Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تغيير الحالة: ' . $error->getMessage()], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تغيير حالة تمييز التصميم'], 500);
         }
     }
 }

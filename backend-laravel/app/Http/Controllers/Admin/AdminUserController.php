@@ -34,7 +34,7 @@ class AdminUserController extends Controller
             return response()->json($usersResponse);
         } catch (\Exception $error) {
             \Log::error('Get Users Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب المستخدمين'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة المستخدمين'], 500);
         }
     }
 
@@ -44,7 +44,7 @@ class AdminUserController extends Controller
             $user = User::where('id', $id)->first();
 
             if (!$user) {
-                return response()->json(['detail' => 'المستخدم غير موجود'], 404);
+                return response()->json(['detail' => 'المستخدم المراد تعديل بياناته غير موجود'], 404);
             }
 
             if ($request->has('is_unlimited')) {
@@ -58,13 +58,13 @@ class AdminUserController extends Controller
             $user->save();
 
             return response()->json([
-                'message' => 'تم تحديث حصة التصاميم بنجاح',
+                'message' => 'تم تحديث بيانات وصلاحيات التصاميم للمستخدم بنجاح',
                 'designs_limit' => $user->designs_limit,
                 'is_unlimited' => $user->is_unlimited,
             ]);
         } catch (\Exception $error) {
             \Log::error('Update Designs Limit Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تحديث حصة التصاميم'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تحديث بيانات المستخدم'], 500);
         }
     }
 
@@ -74,20 +74,20 @@ class AdminUserController extends Controller
             $user = User::where('id', $id)->first();
 
             if (!$user) {
-                return response()->json(['detail' => 'المستخدم غير موجود'], 404);
+                return response()->json(['detail' => 'المستخدم المراد حذفه غير موجود'], 404);
             }
             if ($user->is_admin) {
-                return response()->json(['detail' => 'لا يمكن حذف مستخدم مدير'], 403);
+                return response()->json(['detail' => 'إجراء غير مصرح به: لا يمكنك حذف حساب يمتلك صلاحيات مدير'], 403);
             }
             Design::where('user_id', $id)->delete();
             Order::where('user_id', $id)->delete();
             CouponUsage::where('user_id', $id)->delete();
             $user->delete();
 
-            return response()->json(['message' => 'تم حذف المستخدم وجميع بياناته بنجاح']);
+            return response()->json(['message' => 'تم حذف المستخدم وجميع بياناته المرتبطة بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Delete User Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في حذف المستخدم'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء محاولة حذف المستخدم'], 500);
         }
     }
 }

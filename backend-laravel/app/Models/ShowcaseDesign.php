@@ -10,7 +10,8 @@ class ShowcaseDesign extends Model
        'title',
         'description',
         'prompt',
-        'image_path', 
+        'image_base64',
+        'image_path',
         'clothing_type',
         'color',
         'template_id',
@@ -32,7 +33,7 @@ class ShowcaseDesign extends Model
 
     public function getImageUrlAttribute()
     {
-    
+
         if ($this->image_path) {
             return asset('storage/' . $this->image_path);
         }

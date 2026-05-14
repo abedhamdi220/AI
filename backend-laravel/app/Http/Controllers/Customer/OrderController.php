@@ -10,13 +10,13 @@ use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
     public function store(Request $request)
     {
         try {
-            // 👉 استخدام ميزة Validation للتحقق من البيانات وتنظيمها
             $validated = $request->validate([
                 'design_image_base64' => 'required|string',
                 'prompt' => 'required|string',
@@ -24,7 +24,7 @@ class OrderController extends Controller
                 'size' => 'nullable|string',
                 'design_id' => 'nullable|string',
                 'color' => 'nullable|string',
-                'coupon_code' => 'nullable|string' // 👉 إضافة حقل الكوبون كما طُلب
+                'coupon_code' => 'nullable|string'
             ]);
 
             $orderId = (string) Str::uuid();
@@ -45,7 +45,6 @@ class OrderController extends Controller
                 'coupon_code' => $validated['coupon_code'] ?? null,
             ]);
 
-            // 👉 معالجة الكوبون وتسجيل استخدامه إن وجد
             if (!empty($validated['coupon_code'])) {
                 $coupon = Coupon::where('code', strtoupper($validated['coupon_code']))->first();
                 if ($coupon) {
@@ -60,7 +59,6 @@ class OrderController extends Controller
                 }
             }
 
-            // 👉 استدعاء Notification مباشرة بدون class_exists
             Notification::create([
                 'user_id' => $request->user()->id,
                 'title' => 'تم إرسال طلبك بنجاح! 🎉',
@@ -70,7 +68,7 @@ class OrderController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'تم إرسال الطلب بنجاح',
+                'message' => 'تم إرسال طلبك بنجاح، شكراً لثقتك بنا.',
                 'order_id' => $orderId,
                 'order' => [
                     'id' => $order->id,
@@ -82,7 +80,8 @@ class OrderController extends Controller
             ], 201);
 
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في إرسال الطلب: ' . $e->getMessage()], 500);
+            Log::error('Create Order Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، حدث خطأ أثناء إرسال الطلب. يرجى التأكد من البيانات والمحاولة مرة أخرى.'], 500);
         }
     }
 
@@ -112,7 +111,8 @@ class OrderController extends Controller
             return response()->json($response);
 
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في جلب الطلبات'], 500);
+            Log::error('Fetch Orders Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، تعذر جلب قائمة طلباتك في الوقت الحالي. يرجى إعادة تحميل الصفحة.'], 500);
         }
     }
 }

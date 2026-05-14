@@ -19,8 +19,8 @@ class AdminDesignController extends Controller
                 return [
                     'id' => $design->id,
                     'user_id' => $design->user_id,
-                    'user_name' => $user->username ?? 'Unknown',
-                    'user_email' => $user->email ?? 'Unknown',
+                    'user_name' => $user->username ?? 'غير معروف',
+                    'user_email' => $user->email ?? 'غير معروف',
                     'prompt' => $design->prompt,
                     'image_base64' => $design->image_base64,
                     'clothing_type' => $design->clothing_type,
@@ -34,7 +34,7 @@ class AdminDesignController extends Controller
             return response()->json($designsWithUsers);
         } catch (\Exception $error) {
             \Log::error('Get Designs Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب التصاميم'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة التصاميم'], 500);
         }
     }
 
@@ -44,7 +44,7 @@ class AdminDesignController extends Controller
             $design = Design::where('id', $id)->first();
 
             if (!$design) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'التصميم المراد حذفه غير موجود'], 404);
             }
             User::where('id', $design->user_id)->decrement('designs_used');
 
@@ -53,7 +53,7 @@ class AdminDesignController extends Controller
             return response()->json(['message' => 'تم حذف التصميم بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Delete Design Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في حذف التصميم'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء محاولة حذف التصميم'], 500);
         }
     }
 }

@@ -45,7 +45,12 @@ export default function Dashboard({ user, onLogout }) {
   const [activeView, setActiveView] = useState("showcase");
   const [showNotifications, setShowNotifications] = useState(false);
   const [designStep, setDesignStep] = useState("select-type"); // "select-type" or "customize"
-  
+
+
+  const [clothingTypes, setClothingTypes] = useState([]);
+const [viewAngles, setViewAngles] = useState([]);
+
+
   // Design State
   const [prompt, setPrompt] = useState("");
   const [enhancedPrompt, setEnhancedPrompt] = useState("");
@@ -162,15 +167,16 @@ export default function Dashboard({ user, onLogout }) {
     is_unlimited: false
   });
 
-  useEffect(() => {
-    fetchDesigns();
-    fetchShowcase();
-    fetchSizeChart();
-    fetchOrders();
-    fetchNotifications();
-    fetchCoupons();
-    fetchDesignsQuota();
-  }, []);
+useEffect(() => {
+  fetchDesigns();
+  fetchShowcase();
+  fetchSizeChart();
+  fetchOrders();
+  fetchNotifications();
+  fetchCoupons();
+  fetchDesignsQuota();
+  fetchOptions(); // الاستدعاء الجديد
+}, []);
   
   const fetchDesignsQuota = async () => {
     try {
@@ -178,20 +184,28 @@ export default function Dashboard({ user, onLogout }) {
       setDesignsQuota(response.data);
     } catch (error) {
       console.error("Failed to fetch designs quota:", error);
+      toast.error(error.response?.data?.detail || "فشل في جلب بيانات باقة التصاميم");
     }
   };
 
-  useEffect(() => {
-    // Remove price calculation since we don't need pricing anymore
-  }, [selectedSize, logoPreview]);
-
+  const fetchOptions = async () => {
+  try {
+    const typesRes = await axios.get(`${API}/options/clothing-types`);
+    setClothingTypes(typesRes.data);
+    
+    const anglesRes = await axios.get(`${API}/options/view-angles`);
+    setViewAngles(anglesRes.data);
+  } catch (error) {
+    console.error("Failed to fetch options:", error);
+  }
+};
   const fetchDesigns = async () => {
     setLoading(true);
     try {
       const response = await axios.get(`${API}/designs`);
       setDesigns(response.data);
     } catch (error) {
-      toast.error("فشل في تحميل التصاميم");
+      toast.error(error.response?.data?.detail || "فشل في تحميل التصاميم");
     } finally {
       setLoading(false);
     }
@@ -202,25 +216,29 @@ export default function Dashboard({ user, onLogout }) {
       const response = await axios.get(`${API}/designs/showcase`);
       setShowcaseDesigns(response.data);
     } catch (error) {
-      console.error("Failed to fetch showcase");
+      console.error("Failed to fetch showcase:", error);
+      // Optional: toast.error(error.response?.data?.detail || "تعذر تحميل تصاميم المعرض");
     }
   };
 
   const fetchSizeChart = async () => {
     try {
-      const response = await axios.get(`${API}/size-chart`);
+      // ✅ تم تصحيح المسار ليتطابق مع الـ Back-end
+      const response = await axios.get(`${API}/designs/size-chart`);
       setSizeChart(response.data);
     } catch (error) {
-      console.error("Failed to fetch size chart");
+      console.error("Failed to fetch size chart:", error);
     }
   };
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get(`${API}/orders`);
+      // ✅ تم تصحيح المسار ليتطابق مع الـ Back-end
+      const response = await axios.get(`${API}/orders/my-orders`);
       setOrders(response.data);
     } catch (error) {
-      console.error("Failed to fetch orders");
+      console.error("Failed to fetch orders:", error);
+      toast.error(error.response?.data?.detail || "فشل في تحميل الطلبات");
     }
   };
 
@@ -233,7 +251,7 @@ export default function Dashboard({ user, onLogout }) {
       const unreadResponse = await axios.get(`${API}/notifications/unread-count`);
       setUnreadCount(unreadResponse.data.count || 0);
     } catch (error) {
-      console.error("Failed to fetch notifications");
+      console.error("Failed to fetch notifications:", error);
     }
   };
 
@@ -242,7 +260,7 @@ export default function Dashboard({ user, onLogout }) {
       const response = await axios.get(`${API}/coupons`);
       setAvailableCoupons(response.data);
     } catch (error) {
-      console.error("Failed to fetch coupons");
+      console.error("Failed to fetch coupons:", error);
     }
   };
 
@@ -254,7 +272,7 @@ export default function Dashboard({ user, onLogout }) {
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
     } catch (error) {
-      console.error("Failed to mark notification as read");
+      console.error("Failed to mark notification as read:", error);
     }
   };
 
@@ -265,8 +283,7 @@ export default function Dashboard({ user, onLogout }) {
       setUnreadCount(0);
       toast.success("تم تحديد جميع الإشعارات كمقروءة");
     } catch (error) {
-      console.error("Failed to mark all notifications as read");
-      toast.error("فشل في تحديث الإشعارات");
+      toast.error(error.response?.data?.detail || "فشل في تحديث الإشعارات");
     }
   };
 
@@ -290,6 +307,7 @@ export default function Dashboard({ user, onLogout }) {
         setAppliedCoupon(null);
       }
     } catch (error) {
+      // ✅ استلام الخطأ من الباك اند
       toast.error(error.response?.data?.detail || "كود الكوبون غير صحيح");
       setAppliedCoupon(null);
     } finally {
@@ -301,28 +319,6 @@ export default function Dashboard({ user, onLogout }) {
     setCouponCode("");
     setAppliedCoupon(null);
     toast.info("تم إزالة الكوبون");
-  };
-
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUserPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const saveMeasurements = async () => {
@@ -340,7 +336,7 @@ export default function Dashboard({ user, onLogout }) {
       toast.success(`تم حفظ المقاسات! المقاس المقترح: ${response.data.suggested_size}`);
       setShowMeasurements(false);
     } catch (error) {
-      toast.error("فشل في حفظ المقاسات");
+      toast.error(error.response?.data?.detail || "فشل في حفظ المقاسات");
     }
   };
 
@@ -357,10 +353,10 @@ export default function Dashboard({ user, onLogout }) {
         clothing_type: selectedClothingType
       });
       setEnhancedPrompt(response.data.enhanced_prompt);
-      setPrompt(response.data.enhanced_prompt); // Update the visible prompt too
+      setPrompt(response.data.enhanced_prompt); 
       toast.success("تم تحسين الوصف بنجاح!");
     } catch (error) {
-      toast.error("فشل في تحسين الوصف");
+      toast.error(error.response?.data?.detail || "فشل في تحسين الوصف");
     } finally {
       setEnhancing(false);
     }
@@ -372,7 +368,6 @@ export default function Dashboard({ user, onLogout }) {
       return;
     }
     
-    // Check designs quota
     if (!designsQuota.is_unlimited && designsQuota.designs_remaining <= 0) {
       toast.error("لقد وصلت إلى الحد الأقصى لعدد التصاميم. تواصل مع الإدارة لزيادة الحد.");
       return;
@@ -404,7 +399,6 @@ export default function Dashboard({ user, onLogout }) {
         template_id: null
       });
       
-      // Store composite image if available
       if (response.data.composite_image_base64) {
         setCompositeImage(response.data.composite_image_base64);
         toast.success("🎨 تم إنشاء التصميم مع صورتك!");
@@ -412,7 +406,6 @@ export default function Dashboard({ user, onLogout }) {
         toast.success("تم إنشاء التصميم بنجاح!");
       }
       
-      // Update quota from response data (more accurate)
       if (response.data.designs_remaining !== undefined) {
         setDesignsQuota(prev => ({
           ...prev,
@@ -421,11 +414,9 @@ export default function Dashboard({ user, onLogout }) {
           designs_limit: response.data.designs_limit
         }));
       } else {
-        // Fallback to fetching quota
         await fetchDesignsQuota();
       }
       
-      // Show warning if running low on designs
       const remaining = response.data.designs_remaining ?? (designsQuota.designs_remaining - 1);
       if (!designsQuota.is_unlimited && remaining <= 3 && remaining > 0) {
         toast.warning(`⚠️ تبقى لديك ${remaining} تصاميم فقط`);
@@ -434,6 +425,7 @@ export default function Dashboard({ user, onLogout }) {
         toast.error("⚠️ لقد استنفدت جميع محاولات التصميم المجانية!");
       }
     } catch (error) {
+      // ✅ استلام الخطأ المخصص للذكاء الاصطناعي (مثل: الوصف غير مناسب)
       toast.error(error.response?.data?.detail || "فشل في إنشاء التصميم");
     } finally {
       setGenerating(false);
@@ -443,7 +435,6 @@ export default function Dashboard({ user, onLogout }) {
   const handleSaveToGallery = async () => {
     if (!generatedDesign) return;
     
-    // Ask for phone number if not provided
     if (!phoneNumber.trim()) {
       toast.error("الرجاء إدخال رقم هاتفك للتواصل معك لاحقاً");
       setShowOrderForm(true);
@@ -463,9 +454,9 @@ export default function Dashboard({ user, onLogout }) {
       
       setDesigns([response.data, ...designs]);
       toast.success("✨ تم حفظ التصميم في معرضك بنجاح!");
-      setPhoneNumber(""); // Reset phone number after save
+      setPhoneNumber(""); 
     } catch (error) {
-      toast.error("فشل في حفظ التصميم");
+      toast.error(error.response?.data?.detail || "فشل في حفظ التصميم");
     }
   };
 
@@ -482,14 +473,18 @@ export default function Dashboard({ user, onLogout }) {
         prompt: generatedDesign.prompt,
         phone_number: phoneNumber,
         size: selectedSize,
-        design_id: generatedDesign.template_id
+        design_id: generatedDesign.template_id,
+        coupon_code: appliedCoupon ? couponCode : null // ✅ إرسال الكوبون إذا كان مفعلاً
       });
       
       toast.success("تم إرسال الطلب بنجاح! سنتواصل معك قريباً");
       setShowOrderForm(false);
       setPhoneNumber("");
+      
+      // تحديث قائمة الطلبات بعد الإنشاء
+      fetchOrders();
     } catch (error) {
-      toast.error("فشل في إرسال الطلب");
+      toast.error(error.response?.data?.detail || "فشل في إرسال الطلب");
     } finally {
       setSubmittingOrder(false);
     }
@@ -532,7 +527,7 @@ export default function Dashboard({ user, onLogout }) {
       ));
       toast.success(response.data.is_favorite ? "تمت إضافة التصميم للمفضلة" : "تمت إزالة التصميم من المفضلة");
     } catch (error) {
-      toast.error("فشل في تحديث المفضلة");
+      toast.error(error.response?.data?.detail || "فشل في تحديث المفضلة");
     }
   };
 
@@ -541,8 +536,9 @@ export default function Dashboard({ user, onLogout }) {
       await axios.delete(`${API}/designs/${deleteDialog.designId}`);
       setDesigns(designs.filter(d => d.id !== deleteDialog.designId));
       toast.success("تم حذف التصميم بنجاح");
+      fetchDesignsQuota(); // تحديث الحصة بعد الحذف
     } catch (error) {
-      toast.error("فشل في حذف التصميم");
+      toast.error(error.response?.data?.detail || "فشل في حذف التصميم");
     } finally {
       setDeleteDialog({ open: false, designId: null });
     }
@@ -1618,11 +1614,32 @@ export default function Dashboard({ user, onLogout }) {
                 {designs.map((design) => (
                   <Card key={design.id} className="glass overflow-hidden card-hover">
                     <div className="relative aspect-square bg-white">
-                      <img
+                      {/* <img
                         src={`data:image/png;base64,${design.image_base64}`}
                         alt={design.prompt}
                         className="w-full h-full object-cover"
-                      />
+                      /> */}
+     {design.image_base64 ? (
+ // الطريقة الصحيحة لعرض صورة Base64 في React
+<img 
+  src={
+    design.image_url 
+      ? design.image_url 
+      : (design.image_base64 && !design.image_base64.startsWith('data:image'))
+        ? `data:image/png;base64,${design.image_base64}`
+        : design.image_base64 || '/placeholder.png'
+  } 
+  alt="التصميم" 
+  className="w-full h-full object-cover"
+/>
+) : (
+  <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+    <div className="text-center">
+      <Sparkles className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+      <span className="text-sm text-gray-500">جاري المعالجة أو الصورة غير متوفرة</span>
+    </div>
+  </div>
+)}
                       <button
                         onClick={() => toggleFavorite(design.id, design.is_favorite)}
                         className="absolute top-2 sm:top-4 left-2 sm:left-4 p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:scale-110 transition-transform"

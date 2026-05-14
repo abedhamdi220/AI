@@ -12,7 +12,7 @@ class Coupon extends Model
 protected $primaryKey = 'id';
     protected $keyType = 'string';
     public $incrementing = false;
-    protected $fillable = [
+ protected $fillable = [
         'id',
         'code',
         'discount_percentage',
@@ -20,6 +20,8 @@ protected $primaryKey = 'id';
         'is_active',
         'max_uses',
         'current_uses',
+        'description',  
+        'min_purchase',
         'created_at',
     ];
 

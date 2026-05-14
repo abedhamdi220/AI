@@ -11,6 +11,7 @@ use App\Services\DesignService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class DesignController extends Controller
 {
@@ -20,16 +21,18 @@ class DesignController extends Controller
     {
         $this->designService = $designService;
     }
- public function sizeChart()
-    {
-        return response()->json([
-            'S' => 'Small',
-            'M' => 'Medium',
-            'L' => 'Large',
-            'XL' => 'Extra Large',
-            'XXL' => 'Double Extra Large'
-        ]);
-    }
+
+  public function sizeChart()
+{
+    return response()->json([
+        'S' => ['chest' => '86-94', 'waist' => '71-79', 'hips' => '89-97'],
+        'M' => ['chest' => '94-102', 'waist' => '79-86', 'hips' => '97-104'],
+        'L' => ['chest' => '102-112', 'waist' => '86-97', 'hips' => '104-114'],
+        'XL' => ['chest' => '112-122', 'waist' => '97-107', 'hips' => '114-124'],
+        'XXL' => ['chest' => '122-132', 'waist' => '107-119', 'hips' => '124-134']
+    ]);
+}
+
     public function enhancePrompt(Request $request)
     {
         try {
@@ -37,7 +40,7 @@ class DesignController extends Controller
             $clothing_type = $request->input('clothing_type');
 
             if (!$prompt) {
-                return response()->json(['detail' => 'يرجى إدخال الوصف'], 400);
+                return response()->json(['detail' => 'يرجى كتابة وصف للتصميم أولاً.'], 400);
             }
 
             $clothingTypeMap = [
@@ -58,7 +61,8 @@ class DesignController extends Controller
                 'original_prompt' => $prompt
             ]);
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في تحسين الوصف'], 500);
+            Log::error('Enhance Prompt Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، تعذر تحسين الوصف في الوقت الحالي. يرجى المحاولة مرة أخرى.'], 500);
         }
     }
 
@@ -74,13 +78,13 @@ class DesignController extends Controller
             $view_angle = $request->input('view_angle', 'front');
 
             if (!$prompt || !$clothing_type) {
-                return response()->json(['detail' => 'يرجى إدخال الوصف ونوع الملبس'], 400);
+                return response()->json(['detail' => 'يرجى إدخال وصف التصميم واختيار نوع الملابس.'], 400);
             }
 
             $user = User::where('id', $request->user()->id)->first();
 
             if (!$user->is_unlimited && $user->designs_used >= $user->designs_limit) {
-                return response()->json(['detail' => 'لقد وصلت إلى الحد الأقصى من التصاميم المجانية'], 403);
+                return response()->json(['detail' => 'عذراً، لقد استنفدت رصيدك من التصاميم المجانية المتاحة.'], 403);
             }
 
             $clothingTypeMap = [
@@ -108,7 +112,7 @@ class DesignController extends Controller
                 'image_base64' => $result['image_base64'],
                 'composite_image_base64' => $result['composite_image_base64'] ?? '',
                 'prompt' => $result['revised_prompt'] ?? $prompt,
-                'message' => 'تم إنشاء التصميم بنجاح',
+                'message' => 'تم إنشاء تصميمك بنجاح!',
                 'designs_remaining' => $designsRemaining,
                 'designs_used' => $user->designs_used,
                 'designs_limit' => $user->designs_limit
@@ -117,33 +121,21 @@ class DesignController extends Controller
         }
         catch (Exception $e)
         {
-
-//  $status = $e->getCode() ?: 500;
-//             if ($status == 400) {
-//                 return response()->json(['detail' => 'الوصف غير مناسب. يرجى تعديله والمحاولة مرة أخرى.'], 400);
-//             }
-//             if ($status == 429) {
-//                 return response()->json(['detail' => 'تم تجاوز الحد المسموح. يرجى الانتظار والمحاولة لاحقاً.'], 429);
-//             }
-
-//             // إرجاع رسالة الخطأ الفعلية بدلاً من الرسالة العامة لتسهيل تتبع المشكلة
-//             return response()->json(['detail' => $e->getMessage()], 500);
-//         }
             $status = $e->getCode() ?: 500;
             if ($status == 400) {
-                return response()->json(['detail' => 'الوصف غير مناسب. يرجى تعديله والمحاولة مرة أخرى.'], 400);
+                return response()->json(['detail' => 'وصف التصميم غير مناسب أو يحتوي على كلمات غير مسموحة. يرجى تعديله والمحاولة مرة أخرى.'], 400);
             }
             if ($status == 429) {
-                return response()->json(['detail' => 'تم تجاوز الحد المسموح. يرجى الانتظار والمحاولة لاحقاً.'], 429);
+                return response()->json(['detail' => 'يوجد ضغط كبير على النظام حالياً. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'], 429);
             }
-            return response()->json(['detail' => 'خطأ في إنشاء التصميم. يرجى المحاولة مرة أخرى.'], 500);
+            Log::error('Preview Design Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، حدث خطأ أثناء معالجة التصميم. يرجى المحاولة مرة أخرى.'], 500);
         }
     }
 
     public function save(Request $request)
     {
         try {
-            // 👉 استخدام ميزة Validation بدلاً من التحقق اليدوي
             $validated = $request->validate([
                 'prompt' => 'required|string',
                 'image_base64' => 'required|string',
@@ -165,23 +157,22 @@ class DesignController extends Controller
 
             User::where('id', $request->user()->id)->increment('designs_used');
 
-            $orderId = (string) Str::uuid();
-            Order::create([
-                'id' => $orderId,
-                'user_id' => $request->user()->id,
-                'design_id' => $designId,
-                'design_image_base64' => $validated['image_base64'],
-                'prompt' => $validated['prompt'],
-                'phone_number' => $validated['phone_number'] ?? 'غير محدد',
-                'size' => 'M',
-                'color' => $validated['color'] ?? '',
-                'price' => 0,
-                'discount' => 0,
-                'final_price' => 0,
-                'status' => 'pending',
-            ]);
+            // $orderId = (string) Str::uuid();
+            // Order::create([
+            //     'id' => $orderId,
+            //     'user_id' => $request->user()->id,
+            //     'design_id' => $designId,
+            //     'design_image_base64' => $validated['image_base64'],
+            //     'prompt' => $validated['prompt'],
+            //     'phone_number' => $validated['phone_number'] ?? 'غير محدد',
+            //     'size' => 'M',
+            //     'color' => $validated['color'] ?? '',
+            //     'price' => 0,
+            //     'discount' => 0,
+            //     'final_price' => 0,
+            //     'status' => 'pending',
+            // ]);
 
-            // 👉 استدعاء Notification مباشرة بدون class_exists
             Notification::create([
                 'user_id' => $request->user()->id,
                 'title' => 'تم حفظ التصميم بنجاح',
@@ -200,7 +191,8 @@ class DesignController extends Controller
                 'color' => $design->color,
             ], 201);
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في حفظ التصميم: ' . $e->getMessage()], 500);
+            Log::error('Save Design Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، حدث خطأ أثناء حفظ التصميم. يرجى المحاولة مرة أخرى.'], 500);
         }
     }
 
@@ -228,7 +220,8 @@ class DesignController extends Controller
 
             return response()->json($response);
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في جلب التصاميم'], 500);
+            Log::error('Fetch Designs Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، تعذر تحميل قائمة تصاميمك. يرجى إعادة تحميل الصفحة.'], 500);
         }
     }
 
@@ -238,18 +231,19 @@ class DesignController extends Controller
             $design = Design::where('id', $id)->where('user_id', $request->user()->id)->first();
 
             if (!$design) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'عذراً، لم يتم العثور على هذا التصميم.'], 404);
             }
 
             $design->is_favorite = !$design->is_favorite;
             $design->save();
 
             return response()->json([
-                'message' => $design->is_favorite ? 'تمت الإضافة للمفضلة' : 'تمت الإزالة من المفضلة',
+                'message' => $design->is_favorite ? 'تمت إضافة التصميم إلى المفضلة' : 'تمت إزالة التصميم من المفضلة',
                 'is_favorite' => $design->is_favorite,
             ]);
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في تحديث المفضلة'], 500);
+            Log::error('Toggle Favorite Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، تعذر تحديث حالة المفضلة. يرجى المحاولة مجدداً.'], 500);
         }
     }
 
@@ -259,16 +253,17 @@ class DesignController extends Controller
             $design = Design::where('id', $id)->where('user_id', $request->user()->id)->first();
 
             if (!$design) {
-                return response()->json(['detail' => 'التصميم غير موجود'], 404);
+                return response()->json(['detail' => 'عذراً، لم يتم العثور على هذا التصميم.'], 404);
             }
 
             $design->delete();
 
             User::where('id', $request->user()->id)->decrement('designs_used');
 
-            return response()->json(['message' => 'تم حذف التصميم بنجاح']);
+            return response()->json(['message' => 'تم حذف التصميم بنجاح.']);
         } catch (Exception $e) {
-            return response()->json(['detail' => 'خطأ في حذف التصميم'], 500);
+            Log::error('Delete Design Error: ' . $e->getMessage());
+            return response()->json(['detail' => 'عذراً، تعذر حذف التصميم. يرجى المحاولة مجدداً.'], 500);
         }
     }
 }

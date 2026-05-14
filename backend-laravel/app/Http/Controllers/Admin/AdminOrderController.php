@@ -20,8 +20,8 @@ class AdminOrderController extends Controller
                 return [
                     'id' => $order->id,
                     'user_id' => $order->user_id,
-                    'user_name' => $user->username ?? 'Unknown',
-                    'user_email' => $user->email ?? 'Unknown',
+                    'user_name' => $user->username ?? 'غير معروف',
+                    'user_email' => $user->email ?? 'غير معروف',
                     'design_id' => $order->design_id,
                     'design_image_base64' => $order->design_image_base64,
                     'prompt' => $order->prompt,
@@ -31,6 +31,7 @@ class AdminOrderController extends Controller
                     'price' => $order->price,
                     'discount' => $order->discount,
                     'final_price' => $order->final_price,
+'coupon_code' => $order->coupon_code,
                     'status' => $order->status,
                     'created_at' => $order->created_at ? $order->created_at->toIso8601String() : null,
                 ];
@@ -39,7 +40,7 @@ class AdminOrderController extends Controller
             return response()->json($ordersWithUsers);
         } catch (\Exception $error) {
             \Log::error('Get Orders Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب الطلبات'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة الطلبات'], 500);
         }
     }
 
@@ -49,13 +50,13 @@ class AdminOrderController extends Controller
             $status = $request->input('status');
 
             if (!in_array($status, ['pending', 'processing', 'completed', 'cancelled'])) {
-                return response()->json(['detail' => 'حالة غير صالحة'], 400);
+                return response()->json(['detail' => 'حالة الطلب المدخلة غير صالحة للنظام'], 400);
             }
 
             $order = Order::where('id', $id)->first();
 
             if (!$order) {
-                return response()->json(['detail' => 'الطلب غير موجود'], 404);
+                return response()->json(['detail' => 'الطلب المراد تحديثه غير موجود'], 404);
             }
 
             $order->status = $status;
@@ -67,7 +68,7 @@ class AdminOrderController extends Controller
             ]);
         } catch (\Exception $error) {
             \Log::error('Update Order Status Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تحديث حالة الطلب'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تحديث حالة الطلب'], 500);
         }
     }
 }

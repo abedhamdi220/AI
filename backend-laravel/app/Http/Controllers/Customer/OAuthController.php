@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\OAuthService;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class OAuthController extends Controller
 {
@@ -22,7 +23,7 @@ class OAuthController extends Controller
             $request->validate([
                 'credential' => 'required|string',
             ], [
-                'credential.required' => 'يرجى تقديم بيانات Google'
+                'credential.required' => 'بيانات الاعتماد من Google غير متوفرة، يرجى المحاولة مرة أخرى.'
             ]);
 
             $result = $this->oauthService->handleGoogleAuthentication($request->credential);
@@ -36,9 +37,9 @@ class OAuthController extends Controller
                     'username' => $user->username,
                     'email' => $user->email,
                     'is_admin' => $user->is_admin,
-                    'designs_limit' => $user->designs_limit,
-                    'designs_used' => $user->designs_used,
-                    'email_verified' => $user->email_verified,
+                    'designs_limit' => $user->designs_limit ?? 0,
+                    'designs_used' => $user->designs_used ?? 0,
+                    'email_verified' => $user->email_verified_at ? true : false,
                 ]
             ], $result['is_new'] ? 201 : 200);
 
@@ -46,8 +47,10 @@ class OAuthController extends Controller
             $statusCode = $e->getCode() ?: 500;
             if ($statusCode < 100 || $statusCode > 599) $statusCode = 500;
 
+            Log::error('Google OAuth Error: ' . $e->getMessage());
+
             return response()->json([
-                'detail' => 'خطأ في تسجيل الدخول عبر Google: ' . $e->getMessage()
+                'detail' => $e->getMessage() ?: 'عذراً، حدث خطأ أثناء محاولة تسجيل الدخول باستخدام حساب Google. يرجى المحاولة مرة أخرى.'
             ], $statusCode);
         }
     }

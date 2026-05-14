@@ -28,7 +28,8 @@ export default function AdminDashboard({ user, onLogout }) {
     total_designs: 0,
     pending_orders: 0,
     completed_orders: 0,
-    total_revenue: 0
+    total_revenue: 0,
+    total_discounts_given: 0 // التحسين الجديد
   });
   
   // Data
@@ -43,6 +44,15 @@ export default function AdminDashboard({ user, onLogout }) {
   const [viewDesignModal, setViewDesignModal] = useState({ open: false, design: null });
   const [couponUsageModal, setCouponUsageModal] = useState({ open: false, coupon: null, usages: [] });
   const [deleteUserModal, setDeleteUserModal] = useState({ open: false, user: null });
+
+  // New Coupon Form State (التحسين الجديد)
+  const [newCoupon, setNewCoupon] = useState({
+    code: "",
+    discount_percentage: "",
+    expiry_date: "",
+    description: "",
+    min_purchase: ""
+  });
   
   // Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,13 +66,18 @@ export default function AdminDashboard({ user, onLogout }) {
     // showcase tab is handled by ShowcaseManager component
   }, [activeTab]);
 
+  // دالة مساعدة لاستخراج رسالة الخطأ من الباك إند
+  const getErrorMessage = (error, defaultMessage) => {
+    return error.response?.data?.detail || defaultMessage;
+  };
+
   const fetchStats = async () => {
     setLoading(true);
     try {
       const response = await axios.get(`${API}/admin/stats`);
       setStats(response.data);
     } catch (error) {
-      toast.error("فشل في تحميل الإحصائيات");
+      toast.error(getErrorMessage(error, "فشل في تحميل الإحصائيات"));
     } finally {
       setLoading(false);
     }
@@ -74,7 +89,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const response = await axios.get(`${API}/admin/users`);
       setUsers(response.data);
     } catch (error) {
-      toast.error("فشل في تحميل المستخدمين");
+      toast.error(getErrorMessage(error, "فشل في تحميل المستخدمين"));
     } finally {
       setLoading(false);
     }
@@ -86,7 +101,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const response = await axios.get(`${API}/admin/orders`);
       setOrders(response.data);
     } catch (error) {
-      toast.error("فشل في تحميل الطلبات");
+      toast.error(getErrorMessage(error, "فشل في تحميل الطلبات"));
     } finally {
       setLoading(false);
     }
@@ -98,7 +113,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const response = await axios.get(`${API}/admin/designs`);
       setDesigns(response.data);
     } catch (error) {
-      toast.error("فشل في تحميل التصاميم");
+      toast.error(getErrorMessage(error, "فشل في تحميل التصاميم"));
     } finally {
       setLoading(false);
     }
@@ -107,16 +122,14 @@ export default function AdminDashboard({ user, onLogout }) {
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      // Fetch coupons with usage stats
       const response = await axios.get(`${API}/admin/coupons-stats`);
       setCoupons(response.data);
     } catch (error) {
-      // Fallback to regular coupons endpoint
       try {
-        const response = await axios.get(`${API}/coupons`);
+        const response = await axios.get(`${API}/admin/coupons`);
         setCoupons(response.data);
       } catch (err) {
-        toast.error("فشل في تحميل الكوبونات");
+        toast.error(getErrorMessage(err, "فشل في تحميل الكوبونات"));
         console.error("Fetch coupons error:", err);
       }
     } finally {
@@ -133,66 +146,72 @@ export default function AdminDashboard({ user, onLogout }) {
         usages: response.data.usages || []
       });
     } catch (error) {
-      toast.error("فشل في تحميل إحصائيات الكوبون");
+      toast.error(getErrorMessage(error, "فشل في تحميل إحصائيات الكوبون"));
     }
   };
 
   const deleteUser = async (userId) => {
     try {
-      await axios.delete(`${API}/admin/users/${userId}`);
-      toast.success("تم حذف المستخدم بنجاح");
+      const response = await axios.delete(`${API}/admin/users/${userId}`);
+      toast.success(response.data.message || "تم حذف المستخدم بنجاح");
       fetchUsers();
       setDeleteUserModal({ open: false, user: null });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "فشل في حذف المستخدم");
+      toast.error(getErrorMessage(error, "فشل في حذف المستخدم"));
     }
   };
 
-  const updateUserLimit = async (userId, newLimit) => {
+  const updateUserLimit = async (userId, payload) => {
     try {
-      await axios.put(`${API}/admin/users/${userId}/designs-limit`, { designs_limit: newLimit });
-      toast.success("تم تحديث حد التصاميم");
+      const response = await axios.put(`${API}/admin/users/${userId}/designs-limit`, payload);
+      toast.success(response.data.message || "تم تحديث حد التصاميم");
       fetchUsers();
       setEditUserModal({ open: false, user: null });
     } catch (error) {
-      toast.error("فشل في تحديث الحد");
+      toast.error(getErrorMessage(error, "فشل في تحديث الحد"));
     }
   };
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      await axios.put(`${API}/admin/orders/${orderId}/status`, { status });
-      toast.success("تم تحديث حالة الطلب");
+      const response = await axios.put(`${API}/admin/orders/${orderId}/status`, { status });
+      toast.success(response.data.message || "تم تحديث حالة الطلب");
       fetchOrders();
     } catch (error) {
-      toast.error("فشل في تحديث الحالة");
+      toast.error(getErrorMessage(error, "فشل في تحديث الحالة"));
     }
   };
 
-  const createCoupon = async (couponData) => {
+  const createCoupon = async () => {
     // Validate inputs
-    if (!couponData.code || !couponData.code.trim()) {
+    if (!newCoupon.code || !newCoupon.code.trim()) {
       toast.error("الرجاء إدخال كود الكوبون");
       return;
     }
     
-    if (!couponData.discount_percentage || couponData.discount_percentage <= 0 || couponData.discount_percentage > 100) {
+    if (!newCoupon.discount_percentage || newCoupon.discount_percentage <= 0 || newCoupon.discount_percentage > 100) {
       toast.error("الرجاء إدخال نسبة خصم صحيحة (1-100)");
       return;
     }
     
     try {
-      await axios.post(`${API}/coupons`, couponData);
-      toast.success("تم إنشاء الكوبون بنجاح");
+      const payload = {
+        code: newCoupon.code,
+        discount_percentage: parseFloat(newCoupon.discount_percentage),
+        expiry_date: newCoupon.expiry_date ? `${newCoupon.expiry_date}T23:59:59` : null,
+        description: newCoupon.description,
+        min_purchase: newCoupon.min_purchase ? parseFloat(newCoupon.min_purchase) : 0
+      };
+
+      const response = await axios.post(`${API}/admin/coupons`, payload);
+      toast.success(response.data.message || "تم إنشاء الكوبون بنجاح");
       fetchCoupons();
       setCreateCouponModal(false);
       
       // Clear inputs
-      document.getElementById('couponCode').value = '';
-      document.getElementById('couponDiscount').value = '';
-      document.getElementById('couponExpiry').value = '';
+      setNewCoupon({ code: "", discount_percentage: "", expiry_date: "", description: "", min_purchase: "" });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "فشل في إنشاء الكوبون");
+      toast.error(getErrorMessage(error, "فشل في إنشاء الكوبون"));
     }
   };
 
@@ -200,11 +219,11 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!window.confirm("هل أنت متأكد من حذف هذا الكوبون؟")) return;
     
     try {
-      await axios.delete(`${API}/coupons/${couponId}`);
-      toast.success("تم حذف الكوبون");
+      const response = await axios.delete(`${API}/admin/coupons/${couponId}`);
+      toast.success(response.data.message || "تم حذف الكوبون");
       fetchCoupons();
     } catch (error) {
-      toast.error("فشل في حذف الكوبون");
+      toast.error(getErrorMessage(error, "فشل في حذف الكوبون"));
     }
   };
 
@@ -289,7 +308,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         {/* Overview Tab */}
         {activeTab === "overview" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="glass border-[#D4AF37]/30">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-[#5D4037]">إجمالي المستخدمين</CardTitle>
@@ -315,21 +334,21 @@ export default function AdminDashboard({ user, onLogout }) {
 
             <Card className="glass border-[#D4AF37]/30">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-[#5D4037]">إجمالي التصاميم</CardTitle>
-                <Image className="w-4 h-4 text-[#D4AF37]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-[#3E2723]">{stats.total_designs}</div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass border-[#D4AF37]/30">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-[#5D4037]">الإيرادات الكلية</CardTitle>
                 <DollarSign className="w-4 h-4 text-[#D4AF37]" />
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-[#3E2723]">{stats.total_revenue} ر.س</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass border-[#D4AF37]/30">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-[#5D4037]">إجمالي الخصومات</CardTitle>
+                <Tag className="w-4 h-4 text-[#D4AF37]" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#3E2723]">{stats.total_discounts_given || 0} ر.س</div>
               </CardContent>
             </Card>
           </div>
@@ -480,6 +499,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
               <h2 className="text-xl sm:text-2xl font-bold text-[#3E2723]">إدارة الطلبات</h2>
+             
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -561,7 +581,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Designs Tab */}
+        {/* Designs Tab (تم إصلاح عرض اسم المستخدم) */}
         {activeTab === "designs" && (
           <div>
             <h2 className="text-2xl font-bold text-[#3E2723] mb-6">جميع التصاميم</h2>
@@ -575,7 +595,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     className="w-full h-48 object-cover"
                   />
                   <CardContent className="p-4">
-                    <p className="font-semibold text-[#3E2723] mb-1">{design.user_name}</p>
+                    <p className="font-semibold text-[#3E2723] mb-1">{design.user_info?.username || design.user_name}</p>
                     <p className="text-sm text-[#5D4037] mb-2 line-clamp-2">{design.prompt}</p>
                     {design.phone_number && (
                       <p className="text-xs text-[#5D4037] flex items-center gap-1">
@@ -590,7 +610,7 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Showcase Designs Tab */}
+        {/* Showcase Designs Tab (تم استعادة المكون الحقيقي) */}
         {activeTab === "showcase" && (
           <ShowcaseManager token={localStorage.getItem('token')} />
         )}
@@ -614,6 +634,9 @@ export default function AdminDashboard({ user, onLogout }) {
                       <div>
                         <p className="text-lg font-bold text-[#3E2723]">{coupon.code}</p>
                         <p className="text-sm text-[#5D4037]">خصم {coupon.discount_percentage}%</p>
+                        {coupon.description && (
+                          <p className="text-xs text-[#5D4037] mt-1">{coupon.description}</p>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <Button
@@ -636,8 +659,12 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
                     
-                    {/* Usage Stats */}
+                    {/* Usage Stats & Min Purchase */}
                     <div className="bg-[#D4AF37]/10 rounded-lg p-2 mb-2">
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-[#5D4037]">الحد الأدنى للشراء:</span>
+                        <span className="font-bold text-[#3E2723]">{coupon.min_purchase || 0} ر.س</span>
+                      </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-[#5D4037]">عدد الاستخدامات:</span>
                         <span className="font-bold text-[#3E2723]">
@@ -676,14 +703,14 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="space-y-4">
             <div>
               <Label>المستخدم: {editUserModal.user?.username}</Label>
-              <p className="text-sm text-[#5D4037]">الحد الحالي: {editUserModal.user?.designs_limit}</p>
+              <p className="text-sm text-[#5D4037]">الحد الحالي: {editUserModal.user?.is_unlimited ? 'غير محدود' : editUserModal.user?.designs_limit}</p>
             </div>
             <div>
               <Label>الحد الجديد</Label>
               <Input 
                 type="number" 
                 id="newLimit"
-                defaultValue={editUserModal.user?.designs_limit}
+                defaultValue={editUserModal.user?.is_unlimited ? -1 : editUserModal.user?.designs_limit}
                 placeholder="أدخل الحد الجديد (-1 لغير محدود)"
               />
             </div>
@@ -695,7 +722,11 @@ export default function AdminDashboard({ user, onLogout }) {
             <Button 
               onClick={() => {
                 const newLimit = parseInt(document.getElementById('newLimit').value);
-                updateUserLimit(editUserModal.user.id, newLimit);
+                const payload = newLimit === -1 
+                  ? { is_unlimited: true, designs_limit: 0 } 
+                  : { is_unlimited: false, designs_limit: newLimit };
+                  
+                updateUserLimit(editUserModal.user.id, payload);
               }}
               className="bg-gradient-to-l from-[#D4AF37] to-[#B8941F]"
             >
@@ -714,15 +745,45 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="space-y-4">
             <div>
               <Label>كود الكوبون</Label>
-              <Input id="couponCode" placeholder="مثال: SUMMER2025" />
+              <Input 
+                value={newCoupon.code}
+                onChange={(e) => setNewCoupon({...newCoupon, code: e.target.value})}
+                placeholder="مثال: SUMMER2025" 
+              />
             </div>
             <div>
               <Label>نسبة الخصم (%)</Label>
-              <Input id="couponDiscount" type="number" placeholder="20" />
+              <Input 
+                type="number" 
+                value={newCoupon.discount_percentage}
+                onChange={(e) => setNewCoupon({...newCoupon, discount_percentage: e.target.value})}
+                placeholder="20" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>وصف الكوبون</Label>
+              <Input 
+                placeholder="مثلاً: خصم خاص بمناسبة عيد الفطر" 
+                value={newCoupon.description}
+                onChange={(e) => setNewCoupon({...newCoupon, description: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>الحد الأدنى للشراء (ر.س)</Label>
+              <Input 
+                type="number"
+                placeholder="0" 
+                value={newCoupon.min_purchase}
+                onChange={(e) => setNewCoupon({...newCoupon, min_purchase: e.target.value})}
+              />
             </div>
             <div>
               <Label>تاريخ الانتهاء (اختياري)</Label>
-              <Input id="couponExpiry" type="date" />
+              <Input 
+                type="date" 
+                value={newCoupon.expiry_date}
+                onChange={(e) => setNewCoupon({...newCoupon, expiry_date: e.target.value})}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -730,17 +791,7 @@ export default function AdminDashboard({ user, onLogout }) {
               إلغاء
             </Button>
             <Button 
-              onClick={() => {
-                const code = document.getElementById('couponCode').value;
-                const discount = parseFloat(document.getElementById('couponDiscount').value);
-                const expiry = document.getElementById('couponExpiry').value;
-                
-                createCoupon({
-                  code,
-                  discount_percentage: discount,
-                  expiry_date: expiry ? `${expiry}T23:59:59` : null
-                });
-              }}
+              onClick={createCoupon}
               className="bg-gradient-to-l from-[#D4AF37] to-[#B8941F]"
             >
               إنشاء
@@ -749,7 +800,7 @@ export default function AdminDashboard({ user, onLogout }) {
         </DialogContent>
       </Dialog>
 
-      {/* View Design Modal */}
+      {/* View Design Modal (تم إصلاح عرض البريد الإلكتروني) */}
       <Dialog open={viewDesignModal.open} onOpenChange={(open) => setViewDesignModal({ open, design: null })}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -765,11 +816,11 @@ export default function AdminDashboard({ user, onLogout }) {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-semibold text-[#3E2723]">المستخدم</p>
-                  <p className="text-[#5D4037]">{viewDesignModal.design.user_info?.username}</p>
+                  <p className="text-[#5D4037]">{viewDesignModal.design.user_info?.username || viewDesignModal.design.user_name}</p>
                 </div>
                 <div>
                   <p className="font-semibold text-[#3E2723]">البريد</p>
-                  <p className="text-[#5D4037]">{viewDesignModal.design.user_email}</p>
+                  <p className="text-[#5D4037]">{viewDesignModal.design.user_info?.email || viewDesignModal.design.user_email}</p>
                 </div>
                 {viewDesignModal.design.phone_number && (
                   <div>
@@ -829,7 +880,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       {/* Coupon Usage Modal */}
       <Dialog open={couponUsageModal.open} onOpenChange={(open) => setCouponUsageModal({ open, coupon: null, usages: [] })}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               إحصائيات الكوبون: {couponUsageModal.coupon?.coupon_code}
@@ -868,6 +919,8 @@ export default function AdminDashboard({ user, onLogout }) {
                       <tr>
                         <th className="px-3 py-2 text-right text-xs font-semibold text-[#3E2723]">المستخدم</th>
                         <th className="px-3 py-2 text-right text-xs font-semibold text-[#3E2723]">البريد</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-[#3E2723]">رقم الطلب</th>
+                        <th className="px-3 py-2 text-right text-xs font-semibold text-[#3E2723]">قيمة الطلب</th>
                         <th className="px-3 py-2 text-right text-xs font-semibold text-[#3E2723]">تاريخ الاستخدام</th>
                       </tr>
                     </thead>
@@ -876,6 +929,8 @@ export default function AdminDashboard({ user, onLogout }) {
                         <tr key={usage.id || index} className="border-t">
                           <td className="px-3 py-2 text-sm text-[#3E2723]">{usage.username}</td>
                           <td className="px-3 py-2 text-sm text-[#5D4037]">{usage.email}</td>
+                          <td className="px-3 py-2 text-sm text-[#5D4037]">{usage.order_id || 'N/A'}</td>
+                          <td className="px-3 py-2 text-sm text-[#5D4037] font-bold">{usage.order_amount} ر.س</td>
                           <td className="px-3 py-2 text-sm text-[#5D4037]">
                             {new Date(usage.used_at).toLocaleString('ar-EG')}
                           </td>
