@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\NewShowcaseDesignCreated;
 use App\Http\Controllers\Controller;
 use App\Models\ShowcaseDesign;
 use Illuminate\Http\Request;
@@ -63,7 +64,7 @@ class AdminShowcaseController extends Controller
                 'is_active' => true,
                 'likes_count' => 0,
             ]);
-
+event(new NewShowcaseDesignCreated($design));
             return response()->json([
                 'message' => 'تم إضافة التصميم الملهم بنجاح',
                 'id' => $design->id,

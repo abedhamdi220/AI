@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\NewCouponCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
@@ -24,7 +25,7 @@ class AdminCouponController extends Controller
 
         $usages = CouponUsage::where('coupon_id', $id)->orderBy('used_at', 'desc')->get();
 
-     
+
         $userIds = $usages->pluck('user_id')->unique()->filter()->values()->all();
         $orderIds = $usages->pluck('order_id')->unique()->filter()->values()->all();
 
@@ -144,6 +145,7 @@ class AdminCouponController extends Controller
                 'min_purchase' => $minPurchase ?: null,
                 'created_at' => now(),
             ]);
+               event(new NewCouponCreated($coupon));
 
             return response()->json([
                 'message' => 'تم إنشاء الكوبون بنجاح',

@@ -29,7 +29,7 @@ export default function AdminDashboard({ user, onLogout }) {
     pending_orders: 0,
     completed_orders: 0,
     total_revenue: 0,
-    total_discounts_given: 0 // التحسين الجديد
+    total_discounts_given: 0
   });
   
   // Data
@@ -45,7 +45,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [couponUsageModal, setCouponUsageModal] = useState({ open: false, coupon: null, usages: [] });
   const [deleteUserModal, setDeleteUserModal] = useState({ open: false, user: null });
 
-  // New Coupon Form State (التحسين الجديد)
+  // New Coupon Form State
   const [newCoupon, setNewCoupon] = useState({
     code: "",
     discount_percentage: "",
@@ -63,10 +63,8 @@ export default function AdminDashboard({ user, onLogout }) {
     if (activeTab === "orders") fetchOrders();
     if (activeTab === "designs") fetchDesigns();
     if (activeTab === "coupons") fetchCoupons();
-    // showcase tab is handled by ShowcaseManager component
   }, [activeTab]);
 
-  // دالة مساعدة لاستخراج رسالة الخطأ من الباك إند
   const getErrorMessage = (error, defaultMessage) => {
     return error.response?.data?.detail || defaultMessage;
   };
@@ -183,7 +181,6 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const createCoupon = async () => {
-    // Validate inputs
     if (!newCoupon.code || !newCoupon.code.trim()) {
       toast.error("الرجاء إدخال كود الكوبون");
       return;
@@ -208,7 +205,6 @@ export default function AdminDashboard({ user, onLogout }) {
       fetchCoupons();
       setCreateCouponModal(false);
       
-      // Clear inputs
       setNewCoupon({ code: "", discount_percentage: "", expiry_date: "", description: "", min_purchase: "" });
     } catch (error) {
       toast.error(getErrorMessage(error, "فشل في إنشاء الكوبون"));
@@ -254,12 +250,12 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const filteredOrders = orders.filter(o =>
     o.user_info?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.prompt?.toLowerCase().includes(searchQuery.toLowerCase())
+    o.prompt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    o.coupon_code?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F5F0E8] via-[#E8DCC8] to-[#F5F0E8]">
-      {/* Header */}
       <header className="glass border-b border-[#3E2723]/10 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -278,7 +274,6 @@ export default function AdminDashboard({ user, onLogout }) {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Tabs */}
         <div className="glass rounded-2xl p-2 mb-8">
           <div className="flex gap-2 overflow-x-auto">
             {[
@@ -306,7 +301,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Overview Tab */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="glass border-[#D4AF37]/30">
@@ -354,7 +348,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Users Tab */}
         {activeTab === "users" && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -370,7 +363,6 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             </div>
             
-            {/* Desktop Table View */}
             <div className="glass rounded-2xl overflow-hidden hidden md:block">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -436,7 +428,6 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
               {filteredUsers.map(u => (
                 <Card key={u.id} className="glass">
@@ -494,7 +485,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Orders Tab */}
         {activeTab === "orders" && (
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
@@ -535,9 +525,15 @@ export default function AdminDashboard({ user, onLogout }) {
                             <Calendar className="w-3 h-3" />
                             {new Date(order.created_at).toLocaleDateString('ar-EG')}
                           </span>
+                          {/* إضافة عرض الكوبون هنا */}
+                          {order.coupon_code && (
+                             <span className="flex items-center gap-1 font-semibold text-green-700 bg-green-100 border border-green-200 px-2 py-0.5 rounded-full">
+                               <Tag className="w-3 h-3" />
+                               كوبون: {order.coupon_code}
+                             </span>
+                          )}
                         </div>
                         
-                        {/* Mobile Status Selector */}
                         <div className="mt-3 sm:hidden">
                           <Select
                             value={order.status}
@@ -556,7 +552,6 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>
                       </div>
                       
-                      {/* Desktop Status Selector */}
                       <div className="hidden sm:flex flex-col gap-2">
                         <Select
                           value={order.status}
@@ -581,7 +576,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Designs Tab (تم إصلاح عرض اسم المستخدم) */}
         {activeTab === "designs" && (
           <div>
             <h2 className="text-2xl font-bold text-[#3E2723] mb-6">جميع التصاميم</h2>
@@ -610,12 +604,10 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {/* Showcase Designs Tab (تم استعادة المكون الحقيقي) */}
         {activeTab === "showcase" && (
           <ShowcaseManager token={localStorage.getItem('token')} />
         )}
 
-        {/* Coupons Tab */}
         {activeTab === "coupons" && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -659,7 +651,6 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
                     
-                    {/* Usage Stats & Min Purchase */}
                     <div className="bg-[#D4AF37]/10 rounded-lg p-2 mb-2">
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-[#5D4037]">الحد الأدنى للشراء:</span>
@@ -694,7 +685,6 @@ export default function AdminDashboard({ user, onLogout }) {
         )}
       </div>
 
-      {/* Edit User Modal */}
       <Dialog open={editUserModal.open} onOpenChange={(open) => setEditUserModal({ open, user: null })}>
         <DialogContent>
           <DialogHeader>
@@ -736,7 +726,6 @@ export default function AdminDashboard({ user, onLogout }) {
         </DialogContent>
       </Dialog>
 
-      {/* Create Coupon Modal */}
       <Dialog open={createCouponModal} onOpenChange={setCreateCouponModal}>
         <DialogContent>
           <DialogHeader>
@@ -800,7 +789,6 @@ export default function AdminDashboard({ user, onLogout }) {
         </DialogContent>
       </Dialog>
 
-      {/* View Design Modal (تم إصلاح عرض البريد الإلكتروني) */}
       <Dialog open={viewDesignModal.open} onOpenChange={(open) => setViewDesignModal({ open, design: null })}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -842,7 +830,6 @@ export default function AdminDashboard({ user, onLogout }) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Confirmation Modal */}
       <Dialog open={deleteUserModal.open} onOpenChange={(open) => setDeleteUserModal({ open, user: null })}>
         <DialogContent>
           <DialogHeader>
@@ -878,7 +865,6 @@ export default function AdminDashboard({ user, onLogout }) {
         </DialogContent>
       </Dialog>
 
-      {/* Coupon Usage Modal */}
       <Dialog open={couponUsageModal.open} onOpenChange={(open) => setCouponUsageModal({ open, coupon: null, usages: [] })}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -887,7 +873,6 @@ export default function AdminDashboard({ user, onLogout }) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Coupon Summary */}
             <div className="bg-[#D4AF37]/10 rounded-lg p-4">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
@@ -907,7 +892,6 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Users List */}
             <div>
               <h4 className="font-semibold text-[#3E2723] mb-3">المستخدمون الذين استعملوا الكوبون:</h4>
               {couponUsageModal.usages.length === 0 ? (

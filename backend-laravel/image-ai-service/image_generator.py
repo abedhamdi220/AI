@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 AI Image Generation Service with Logo and User Photo Composition
-(MOCK VERSION - FOR TESTING ONLY)
 """
 import os
 import base64
@@ -11,12 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw
+from PIL import Image
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Image Generator Service (MOCK MODE)")
+app = FastAPI(title="Image Generator Service")
 
 # CORS
 app.add_middleware(
@@ -69,39 +68,6 @@ def encode_image_to_base64(image: Image.Image, format: str = "PNG") -> str:
     image.save(buffer, format=format)
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-def create_mock_clothing_image(clothing_type: str, color: str, prompt: str) -> Image.Image:
-    """
-    Create a mock image for testing purposes without calling the AI API.
-    """
-    # Try to use the requested color, fallback to light blue if invalid
-    bg_color = color.lower() if color else "#e0f7fa"
-    try:
-        img = Image.new('RGB', (800, 800), color=bg_color)
-    except ValueError:
-        img = Image.new('RGB', (800, 800), color="#e0f7fa")
-
-    draw = ImageDraw.Draw(img)
-
-    # Draw a mock placeholder shape for clothing
-    draw.rectangle([200, 200, 600, 700], outline="#333333", width=5, fill="#ffffff")
-    draw.polygon([(200, 200), (400, 100), (600, 200)], outline="#333333", width=5, fill="#ffffff")
-
-    # Add mock text (English used to ensure standard PIL font renders it correctly)
-    text_y = 350
-    short_prompt = prompt[:30] + "..." if len(prompt) > 30 else prompt
-    lines = [
-        "MOCK IMAGE (TEST MODE)",
-        f"Type: {clothing_type}",
-        f"Color: {color or 'N/A'}",
-        f"Prompt: {short_prompt}"
-    ]
-
-    for line in lines:
-        draw.text((250, text_y), line, fill="#000000")
-        text_y += 40
-
-    return img
-
 def blend_logo_on_design(design_image: Image.Image, logo_image: Image.Image, position: str = "center") -> Image.Image:
     """
     Blend a logo onto the design image at the specified position
@@ -128,18 +94,23 @@ def blend_logo_on_design(design_image: Image.Image, logo_image: Image.Image, pos
     logo_w, logo_h = logo_resized.size
 
     if position == "center":
+        # Center of the chest area (approximately upper-middle)
         x = (design_width - logo_w) // 2
-        y = int(design_height * 0.25)
+        y = int(design_height * 0.25)  # Upper-middle area
     elif position == "left":
+        # Upper left chest
         x = int(design_width * 0.15)
         y = int(design_height * 0.2)
     elif position == "right":
+        # Upper right chest
         x = int(design_width * 0.85) - logo_w
         y = int(design_height * 0.2)
     elif position == "bottom":
+        # Bottom center
         x = (design_width - logo_w) // 2
         y = int(design_height * 0.65)
     else:
+        # Default to center
         x = (design_width - logo_w) // 2
         y = int(design_height * 0.25)
 
@@ -152,22 +123,31 @@ def create_composite_with_user_photo(design_image: Image.Image, user_photo: Imag
     """
     Create a side-by-side composite image showing user photo next to the design
     """
+    # Convert to RGB for final output
     design = design_image.convert('RGB')
     user = user_photo.convert('RGB')
 
+    # Get dimensions
     design_width, design_height = design.size
 
+    # Resize user photo to match design height while maintaining aspect ratio
     user_width, user_height = user.size
     ratio = design_height / user_height
     new_user_width = int(user_width * ratio)
     user_resized = user.resize((new_user_width, design_height), Image.Resampling.LANCZOS)
 
-    total_width = design_width + new_user_width + 40
+    # Create composite canvas
+    total_width = design_width + new_user_width + 40  # 40px gap
     composite = Image.new('RGB', (total_width, design_height), (255, 255, 255))
 
+    # Paste user photo on the left
     composite.paste(user_resized, (0, 0))
+
+    # Paste design on the right
     composite.paste(design, (new_user_width + 40, 0))
 
+    # Add decorative separator line
+    from PIL import ImageDraw
     draw = ImageDraw.Draw(composite)
     separator_x = new_user_width + 20
     draw.line([(separator_x, 20), (separator_x, design_height - 20)], fill=(212, 175, 55), width=3)
@@ -176,19 +156,18 @@ def create_composite_with_user_photo(design_image: Image.Image, user_photo: Imag
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "image-generator-mock"}
+    return {"status": "ok", "service": "image-generator"}
 
 @app.post("/generate", response_model=ImageResponse)
 async def generate_image(request: ImageRequest):
     try:
-        # ---------------------------------------------------------
-        # AI GENERATION COMMENTED OUT FOR TESTING
-        # ---------------------------------------------------------
-        # from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-        # api_key = os.environ.get('EMERGENT_LLM_KEY')
-        # if not api_key:
-        #     raise HTTPException(status_code=500, detail="API key not configured")
+        from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
 
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not api_key:
+            raise HTTPException(status_code=500, detail="API key not configured")
+
+        # Build the prompt with logo description and position if provided
         logo_part = ""
         logo_position_text = LOGO_POSITIONS.get(request.logo_position, "center chest")
 
@@ -197,21 +176,31 @@ async def generate_image(request: ImageRequest):
         elif request.logo_base64:
             logo_part = f" The clothing features a custom printed logo/design prominently displayed on the {logo_position_text}."
 
+        # Create enhanced prompt for fashion design
         enhanced_prompt = f"""Professional fashion photography: A {request.clothing_type} clothing item displayed on a mannequin or flat lay.
 Design details: {request.prompt}.
 {f'Primary color: {request.color}.' if request.color else ''}
 {logo_part}
 Style: High-end fashion catalog photography, clean white/light gray background, professional studio lighting, sharp details, fabric texture visible, premium quality clothing, fashion e-commerce style photo."""
 
-        # ---------------------------------------------------------
-        # GENERATE MOCK IMAGE INSTEAD
-        # ---------------------------------------------------------
-        print("MOCK MODE: Generating dummy image instead of calling API...")
-        generated_image = create_mock_clothing_image(
-            clothing_type=request.clothing_type,
-            color=request.color,
-            prompt=request.prompt
+        # Initialize image generator
+        image_gen = OpenAIImageGeneration(api_key=api_key)
+
+        # Generate image
+        images = await image_gen.generate_images(
+            prompt=enhanced_prompt,
+            model="gpt-image-1",
+            number_of_images=1
         )
+
+        if not images or len(images) == 0:
+            return ImageResponse(
+                success=False,
+                error="No image was generated"
+            )
+
+        # Convert generated image to PIL Image
+        generated_image = Image.open(io.BytesIO(images[0]))
 
         # Process logo if provided - blend it onto the design
         design_with_logo = generated_image
@@ -246,7 +235,7 @@ Style: High-end fashion catalog photography, clean white/light gray background, 
             success=True,
             image_base64=design_base64,
             composite_image_base64=composite_base64,
-            revised_prompt=enhanced_prompt + "\n(MOCK MODE ACTIVE)"
+            revised_prompt=enhanced_prompt
         )
 
     except Exception as e:
@@ -258,5 +247,4 @@ Style: High-end fashion catalog photography, clean white/light gray background, 
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting Image Generator in MOCK MODE...")
     uvicorn.run(app, host="0.0.0.0", port=8002)

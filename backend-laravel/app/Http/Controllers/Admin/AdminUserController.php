@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\UserDeletedByAdmin;
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Models\CouponUsage;
 use App\Models\Design;
 use App\Models\Order;
-use App\Models\CouponUsage;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class AdminUserController extends Controller
@@ -84,6 +85,8 @@ class AdminUserController extends Controller
             CouponUsage::where('user_id', $id)->delete();
             $user->delete();
 
+  event(new UserDeletedByAdmin($user->id, $user->username, $user->email));
+  
             return response()->json(['message' => 'تم حذف المستخدم وجميع بياناته المرتبطة بنجاح']);
         } catch (\Exception $error) {
             \Log::error('Delete User Error: ' . $error->getMessage());

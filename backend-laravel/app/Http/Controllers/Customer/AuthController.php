@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Models\User;
-use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Support\Facades\Hash;
+use App\Events\UserLoggedIn;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Str;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -49,7 +50,7 @@ class AuthController extends Controller
             if (!$token = auth('api')->attempt($credentials)) {
                 return response()->json(['detail' => 'بيانات الدخول غير صحيحة، يرجى التأكد من اسم المستخدم وكلمة المرور.'], 401);
             }
-
+  event(new UserLoggedIn(auth('api')->user()));
             return $this->respondWithToken($token, auth('api')->user(), 200);
 
         } catch (Exception $e) {

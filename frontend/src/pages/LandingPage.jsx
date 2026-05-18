@@ -7,12 +7,13 @@ import { Input } from "../components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import WhatsAppButton from "../components/WhatsAppButton";
-import GoogleLoginButton from "../components/GoogleLoginButton"; 
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 const API = `${BACKEND_URL}/api`;
 
-export default function LandingPage({ onLogin }) {
+function LandingPageContent({ onLogin }) {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [loading, setLoading] = useState(false);
@@ -27,11 +28,13 @@ export default function LandingPage({ onLogin }) {
   };
 
   const validateEmail = (email) => {
+    // يجب أن يكون البريد Gmail فقط
     const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
     return gmailRegex.test(email);
   };
 
   const validatePassword = (password) => {
+    // يجب أن تحتوي على أحرف وأرقام (6 أحرف على الأقل)
     const hasLetters = /[a-zA-Z]/.test(password);
     const hasNumbers = /[0-9]/.test(password);
     return password.length >= 6 && hasLetters && hasNumbers;
@@ -42,39 +45,84 @@ export default function LandingPage({ onLogin }) {
     
     if (authMode === "register") {
       if (!validateEmail(formData.email)) {
-        toast.error("يجب أن يكون البريد الإلكتروني من Gmail (مثال: example@gmail.com)");
+        toast.error("عذراً، التسجيل متاح فقط باستخدام بريد Gmail");
         return;
       }
-      
       if (!validatePassword(formData.password)) {
-        toast.error("كلمة المرور يجب أن تحتوي على أحرف وأرقام (6 أحرف على الأقل)");
+        toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل وتحتوي على أحرف وأرقام");
         return;
       }
     }
-    
+
     setLoading(true);
-
     try {
-      const endpoint = authMode === "login" ? "/auth/login" : "/auth/register";
-      const payload = authMode === "login" 
-        ? { username: formData.username, password: formData.password }
-        : formData;
-
-      const response = await axios.post(`${API}${endpoint}`, payload);
-      
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
+      if (authMode === "register") {
+        // إنشاء الحساب (الباك إند يعيد التوكن مباشرة كما في AuthController)
+        const response = await axios.post(`${API}/auth/register`, {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password
+        });
+        
+        toast.success("تم إنشاء الحساب وتسجيل الدخول بنجاح!");
+        
+        // الاعتماد على التوكن المرتجع مباشرة من دالة الـ Register
+        localStorage.setItem("token", response.data.access_token);
+        if (onLogin) onLogin(response.data.access_token, response.data.user);
+        setShowAuth(false);
+        
+      } else {
+        // تسجيل الدخول العادي بصيغة JSON ليتوافق مع Laravel
+        const response = await axios.post(`${API}/auth/login`, {
+          username: formData.username, // تم التعديل لتكون username بدلاً من email
+          password: formData.password
+        });
+        
+        localStorage.setItem("token", response.data.access_token);
+        toast.success("تم تسجيل الدخول بنجاح!");
+        if (onLogin) onLogin(response.data.access_token, response.data.user);
+        setShowAuth(false);
       }
-      
-      onLogin(response.data.access_token, response.data.user);
-      toast.success(authMode === "login" ? "تم تسجيل الدخول بنجاح!" : "تم إنشاء الحساب بنجاح!");
-      setShowAuth(false);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "حدث خطأ، يرجى المحاولة مرة أخرى");
+      toast.error(error.response?.data?.detail || "حدث خطأ، يرجى التأكد من صحة البيانات والمحاولة مجدداً");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleGoogleSuccess = async (tokenResponse) => {
+    setLoading(true);
+    try {
+      const googleToken = tokenResponse.access_token;
+      
+      const response = await axios.post(`${API}/oauth/google`, {
+        credential: googleToken
+      });
+
+      const { access_token, user } = response.data;
+      
+      localStorage.setItem('token', access_token);
+      
+      toast.success('تم تسجيل الدخول بنجاح!');
+
+      if (onLogin) {
+        onLogin(access_token, user);
+      }
+      setShowAuth(false);
+
+    } catch (error) {
+      console.error('Google login error:', error);
+      const errorMsg = error.response?.data?.detail || 'حدث خطأ أثناء تسجيل الدخول بواسطة جوجل';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => toast.error('فشل الاتصال بخدمة جوجل، يرجى المحاولة مرة أخرى.')
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F5F0E8] via-[#E8DCC8] to-[#F5F0E8] relative overflow-hidden">
@@ -216,7 +264,7 @@ export default function LandingPage({ onLogin }) {
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs value={authMode} onValueChange={setAuthMode} className="w-full">
+          <Tabs value={authMode} onValueChange={setAuthMode} className="w-full mt-4">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">تسجيل الدخول</TabsTrigger>
               <TabsTrigger value="register">حساب جديد</TabsTrigger>
@@ -225,6 +273,7 @@ export default function LandingPage({ onLogin }) {
             <TabsContent value="login">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
+                  {/* تم تعديل الحقل ليطلب اسم المستخدم ليتطابق مع الـ Backend */}
                   <label className="block text-sm font-medium text-[#3E2723] mb-2">
                     اسم المستخدم
                   </label>
@@ -235,6 +284,7 @@ export default function LandingPage({ onLogin }) {
                     onChange={handleInputChange}
                     required
                     className="w-full"
+                    dir="ltr"
                   />
                 </div>
                 <div>
@@ -248,6 +298,7 @@ export default function LandingPage({ onLogin }) {
                     onChange={handleInputChange}
                     required
                     className="w-full"
+                    dir="ltr"
                   />
                 </div>
                 <Button
@@ -255,7 +306,7 @@ export default function LandingPage({ onLogin }) {
                   disabled={loading}
                   className="w-full bg-gradient-to-l from-[#D4AF37] to-[#B8941F] hover:from-[#B8941F] hover:to-[#9A7A1A] text-white"
                 >
-                  {loading ? "جاري التحميل..." : "دخول"}
+                  {loading ? "جاري التحميل..." : "تسجيل الدخول"}
                 </Button>
                 
                 {/* Divider for Login */}
@@ -269,9 +320,21 @@ export default function LandingPage({ onLogin }) {
                 </div>
                 
                 {/* Google Sign In Button for Login */}
-                <div className="w-full">
-                  <GoogleLoginButton onLoginSuccess={onLogin} text="signin_with" />
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => loginWithGoogle()}
+                  disabled={loading}
+                  variant="outline"
+                  className="w-full border-2 border-[#3E2723]/20 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 flex items-center justify-center transition-all"
+                >
+                  <svg className="w-5 h-5 ml-2" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H.18v2.84C2.27 21.59 6.8 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H.18C-.06 8.04-.2 9.08-.2 10.15s.14 2.11.38 3.08l5.46-2.14z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 6.8 1 2.27 3.41.18 7.07l5.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  <span className="font-medium">المتابعة بواسطة جوجل</span>
+                </Button>
               </form>
             </TabsContent>
 
@@ -301,6 +364,7 @@ export default function LandingPage({ onLogin }) {
                     onChange={handleInputChange}
                     required
                     className="w-full"
+                    dir="ltr"
                   />
                 </div>
                 <div>
@@ -314,6 +378,7 @@ export default function LandingPage({ onLogin }) {
                     onChange={handleInputChange}
                     required
                     className="w-full"
+                    dir="ltr"
                   />
                 </div>
                 <Button
@@ -335,14 +400,35 @@ export default function LandingPage({ onLogin }) {
                 </div>
                 
                 {/* Google Sign In Button for Register */}
-                <div className="w-full">
-                  <GoogleLoginButton onLoginSuccess={onLogin} text="signup_with" />
-                </div>
+                <Button
+                  type="button"
+                  onClick={() => loginWithGoogle()}
+                  disabled={loading}
+                  variant="outline"
+                  className="w-full border-2 border-[#3E2723]/20 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 flex items-center justify-center transition-all"
+                >
+                  <svg className="w-5 h-5 ml-2" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H.18v2.84C2.27 21.59 6.8 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H.18C-.06 8.04-.2 9.08-.2 10.15s.14 2.11.38 3.08l5.46-2.14z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 6.8 1 2.27 3.41.18 7.07l5.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  <span className="font-medium">التسجيل بواسطة جوجل</span>
+                </Button>
               </form>
             </TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// تغليف الصفحة بالـ Provider لتمكين تسجيل الدخول بحساب جوجل بشكل سليم
+export default function LandingPage(props) {
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <LandingPageContent {...props} />
+    </GoogleOAuthProvider>
   );
 }

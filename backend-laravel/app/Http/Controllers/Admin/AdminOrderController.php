@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
@@ -61,7 +62,8 @@ class AdminOrderController extends Controller
 
             $order->status = $status;
             $order->save();
-
+            
+ event(new OrderStatusUpdated($order, $status));
             return response()->json([
                 'message' => 'تم تحديث حالة الطلب بنجاح',
                 'status' => $status

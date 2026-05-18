@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers\Customer;
 
+use App\Events\CouponUsedOnOrder;
+use App\Events\OrderPlaced;
 use App\Http\Controllers\Controller;
-use App\Models\Order;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Notification;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use App\Models\Order;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -59,12 +61,12 @@ class OrderController extends Controller
                 }
             }
 
-            Notification::create([
-                'user_id' => $request->user()->id,
-                'title' => 'تم إرسال طلبك بنجاح! 🎉',
-                'message' => 'سيتم التواصل معك قريباً لتأكيد الطلب والتفاصيل.',
-                'type' => 'success'
-            ]);
+              event(new OrderPlaced($order));
+
+            // التحقق مما إذا كان هناك كوبون مستخدم في الطلب لإطلاق حدث الكوبون
+            if (!empty($validated['coupon_code'])) {
+                event(new CouponUsedOnOrder($order, $validated['coupon_code']));
+            }
 
             return response()->json([
                 'success' => true,

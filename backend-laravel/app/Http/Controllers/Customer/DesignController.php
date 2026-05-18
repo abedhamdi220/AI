@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Customer;
 
+use App\Events\DesignCreated;
 use App\Http\Controllers\Controller;
 use App\Models\Design;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\User;
-use App\Models\Notification;
 use App\Services\DesignService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class DesignController extends Controller
 {
@@ -157,28 +158,8 @@ class DesignController extends Controller
 
             User::where('id', $request->user()->id)->increment('designs_used');
 
-            // $orderId = (string) Str::uuid();
-            // Order::create([
-            //     'id' => $orderId,
-            //     'user_id' => $request->user()->id,
-            //     'design_id' => $designId,
-            //     'design_image_base64' => $validated['image_base64'],
-            //     'prompt' => $validated['prompt'],
-            //     'phone_number' => $validated['phone_number'] ?? 'غير محدد',
-            //     'size' => 'M',
-            //     'color' => $validated['color'] ?? '',
-            //     'price' => 0,
-            //     'discount' => 0,
-            //     'final_price' => 0,
-            //     'status' => 'pending',
-            // ]);
 
-            Notification::create([
-                'user_id' => $request->user()->id,
-                'title' => 'تم حفظ التصميم بنجاح',
-                'message' => 'تم حفظ تصميمك الجديد وإنشاء طلب. سنتواصل معك قريباً!',
-                'type' => 'success'
-            ]);
+             event(new DesignCreated($design));
 
             return response()->json([
                 'id' => $design->id,
