@@ -14,7 +14,9 @@ class CouponController extends Controller
     {
         try {
             // 1. جلب الكوبونات الفعالة والتي لم تنتهِ صلاحيتها
-            $coupons = Coupon::where('is_active', true)
+            // تم اختيار الحقول المطلوبة فقط لتقليل استهلاك الذاكرة (Memory Optimization)
+            $coupons = Coupon::select('code', 'discount_percentage', 'expiry_date', 'description', 'min_purchase', 'max_uses', 'current_uses')
+                ->where('is_active', true)
                 ->where('expiry_date', '>', now())
                 ->get();
 
@@ -46,10 +48,10 @@ class CouponController extends Controller
     {
         try {
             $code = $request->input('code');
-            $totalAmount = $request->input('total_amount'); 
+            $totalAmount = $request->input('total_amount'); // قد يتم ارساله من الواجهة
 
             if (!$code) {
-                return response()->json(['detail' => 'يرجى إدخال كود الكوبون للتحقق منه.'], 400);
+                return response()->json(['detail' => 'يرجى إدخال كود الكوبون.'], 400);
             }
 
             $coupon = Coupon::where('code', strtoupper($code))->first();
@@ -70,7 +72,6 @@ class CouponController extends Controller
                 return response()->json(['detail' => 'عذراً، تم الوصول للحد الأقصى لاستخدام هذا الكوبون.'], 400);
             }
 
-
             if ($coupon->min_purchase && $totalAmount && $totalAmount < $coupon->min_purchase) {
                 return response()->json(['detail' => "عذراً، الحد الأدنى لاستخدام هذا الكوبون هو {$coupon->min_purchase}"], 400);
             }
@@ -82,7 +83,7 @@ class CouponController extends Controller
             ]);
         } catch (\Exception $error) {
             Log::error('Validate Coupon Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'حدث خطأ أثناء التحقق من الكوبون. يرجى المحاولة مرة أخرى.'], 500);
+            return response()->json(['detail' => 'حدث خطأ أثناء التحقق من الكوبون.'], 500);
         }
     }
 }

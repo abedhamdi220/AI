@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Star, Eye, EyeOff, Upload, X } from "lucide-react";
+import { Plus, Edit, Trash2, Star, Eye, EyeOff, Upload, X, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -16,6 +16,11 @@ export default function ShowcaseManager({ token }) {
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [editingDesign, setEditingDesign] = useState(null);
+  
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -30,18 +35,27 @@ export default function ShowcaseManager({ token }) {
   const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    fetchDesigns();
-  }, []);
+    fetchDesigns(currentPage);
+  }, [currentPage]);
 
-  const fetchDesigns = async () => {
+  const fetchDesigns = async (page = 1) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/admin/showcase-designs`, {
+      const response = await axios.get(`${API}/admin/showcase-designs?page=${page}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setDesigns(response.data);
+      
+      // ✅ استخراج المصفوفة بشكل آمن من الـ Paginator الجديد
+      if (response.data && response.data.data) {
+        setDesigns(response.data.data);
+        setCurrentPage(response.data.current_page || 1);
+        setTotalPages(response.data.last_page || 1);
+      } else {
+        setDesigns(Array.isArray(response.data) ? response.data : []);
+      }
     } catch (error) {
       toast.error("فشل في تحميل التصاميم");
+      setDesigns([]); // حماية من انهيار الواجهة
     } finally {
       setLoading(false);
     }
@@ -103,7 +117,7 @@ export default function ShowcaseManager({ token }) {
         toast.success("تم إضافة التصميم بنجاح");
       }
 
-      fetchDesigns();
+      fetchDesigns(currentPage);
       handleCloseDialog();
     } catch (error) {
       toast.error(error.response?.data?.detail || "حدث خطأ");
@@ -120,7 +134,12 @@ export default function ShowcaseManager({ token }) {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("تم حذف التصميم بنجاح");
-      fetchDesigns();
+      // إذا حذفنا آخر عنصر في الصفحة، نعود للصفحة السابقة
+      if (designs.length === 1 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else {
+        fetchDesigns(currentPage);
+      }
     } catch (error) {
       toast.error("فشل في حذف التصميم");
     }
@@ -134,7 +153,7 @@ export default function ShowcaseManager({ token }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("تم تحديث حالة التصميم");
-      fetchDesigns();
+      fetchDesigns(currentPage);
     } catch (error) {
       toast.error("فشل في تحديث الحالة");
     }
@@ -148,11 +167,14 @@ export default function ShowcaseManager({ token }) {
       prompt: design.prompt,
       clothing_type: design.clothing_type,
       color: design.color || "",
-      image_base64: design.image_base64,
+      image_base64: "", // لا نرسل البيس 64 إلا إذا قام برفعه من جديد
       tags: design.tags || [],
       is_featured: design.is_featured
     });
-    setImagePreview(`data:image/png;base64,${design.image_base64}`);
+    
+    // ✅ دعم الرابط المباشر (image_url) عند التعديل، مع وجود fallback لـ Base64
+    const imgSrc = design.image_url || (design.image_base64 ? `data:image/png;base64,${design.image_base64}` : null);
+    setImagePreview(imgSrc);
     setShowDialog(true);
   };
 
@@ -173,14 +195,13 @@ export default function ShowcaseManager({ token }) {
     setTagInput("");
   };
 
+  const safeDesignsList = Array.isArray(designs) ? designs : [];
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-[#3E2723]">إدارة التصاميم الملهمة</h2>
-          <p className="text-sm text-[#5D4037] mt-1">
-            إجمالي التصاميم: {designs.length}
-          </p>
         </div>
         <Button
           onClick={() => setShowDialog(true)}
@@ -193,22 +214,32 @@ export default function ShowcaseManager({ token }) {
 
       {/* Designs Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {designs.map((design) => (
+        {safeDesignsList.length > 0 ? safeDesignsList.map((design) => {
+          // ✅ دعم image_url القادم من الـ Backend كأولوية قصوى لتجنب الـ Base64 الطويل
+          const imgSrc = design.image_url || (design.image_base64 ? `data:image/png;base64,${design.image_base64}` : null);
+          
+          return (
           <Card key={design.id} className="glass overflow-hidden">
             <div className="relative aspect-square bg-white">
-              <img
-                src={`data:image/png;base64,${design.image_base64}`}
-                alt={design.title}
-                className="w-full h-full object-cover"
-              />
+              {imgSrc ? (
+                <img
+                  src={imgSrc}
+                  alt={design.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                  لا توجد صورة
+                </div>
+              )}
               {design.is_featured && (
-                <div className="absolute top-2 right-2 bg-[#D4AF37] text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                <div className="absolute top-2 right-2 bg-[#D4AF37] text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
                   <Star className="w-3 h-3 fill-current" />
                   مميز
                 </div>
               )}
               {!design.is_active && (
-                <div className="absolute top-2 left-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                <div className="absolute top-2 left-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
                   <EyeOff className="w-3 h-3" />
                   مخفي
                 </div>
@@ -243,7 +274,8 @@ export default function ShowcaseManager({ token }) {
                   onClick={() => handleToggleFeatured(design.id)}
                   variant="outline"
                   size="sm"
-                  className={`${design.is_featured ? 'border-[#D4AF37] bg-[#D4AF37] text-white' : 'border-gray-300'}`}
+                  className={`${design.is_featured ? 'border-[#D4AF37] bg-[#D4AF37] text-white' : 'border-gray-300'} transition-colors`}
+                  title={design.is_featured ? "إزالة من المميزة" : "إضافة للمميزة"}
                 >
                   <Star className={`w-3 h-3 ${design.is_featured ? 'fill-current' : ''}`} />
                 </Button>
@@ -251,15 +283,44 @@ export default function ShowcaseManager({ token }) {
                   onClick={() => handleDelete(design.id)}
                   variant="outline"
                   size="sm"
-                  className="border-red-300 text-red-600 hover:bg-red-500 hover:text-white"
+                  className="border-red-300 text-red-600 hover:bg-red-500 hover:text-white transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
             </CardContent>
           </Card>
-        ))}
+        )}) : (
+          <div className="col-span-full text-center py-12 bg-white/50 rounded-xl border border-dashed border-[#D4AF37]/50">
+            <p className="text-[#5D4037] font-medium">لا توجد تصاميم ملهمة حتى الآن.</p>
+          </div>
+        )}
       </div>
+
+      {/* ✅ Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-8 gap-4">
+          <Button 
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            variant="outline"
+            className="glass border-[#D4AF37]/50 text-[#3E2723]"
+          >
+            <ChevronRight className="w-4 h-4 mr-1" /> السابق
+          </Button>
+          <span className="text-sm text-[#5D4037] font-semibold px-4 py-2 glass rounded-lg">
+            صفحة {currentPage} من {totalPages}
+          </span>
+          <Button 
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            variant="outline"
+            className="glass border-[#D4AF37]/50 text-[#3E2723]"
+          >
+            التالي <ChevronLeft className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
+      )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={handleCloseDialog}>
@@ -276,10 +337,10 @@ export default function ShowcaseManager({ token }) {
               <label className="block text-sm font-medium text-[#3E2723] mb-2">
                 صورة التصميم *
               </label>
-              <div className="border-2 border-dashed border-[#D4AF37] rounded-lg p-4">
+              <div className="border-2 border-dashed border-[#D4AF37] rounded-lg p-4 bg-white/50">
                 {imagePreview ? (
                   <div className="relative">
-                    <img src={imagePreview} alt="Preview" className="w-full h-64 object-cover rounded-lg" />
+                    <img src={imagePreview} alt="Preview" className="w-full h-64 object-contain rounded-lg" />
                     <Button
                       type="button"
                       onClick={() => {
@@ -288,13 +349,13 @@ export default function ShowcaseManager({ token }) {
                       }}
                       variant="destructive"
                       size="sm"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 right-2 rounded-full w-8 h-8 p-0"
                     >
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center cursor-pointer">
+                  <label className="flex flex-col items-center cursor-pointer py-6">
                     <Upload className="w-12 h-12 text-[#D4AF37] mb-2" />
                     <span className="text-sm text-[#5D4037]">اضغط لرفع صورة</span>
                     <input
@@ -319,6 +380,7 @@ export default function ShowcaseManager({ token }) {
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="مثال: تيشيرت كاجوال أنيق"
                 required
+                className="border-[#D4AF37]/30 focus:border-[#D4AF37]"
               />
             </div>
 
@@ -333,6 +395,7 @@ export default function ShowcaseManager({ token }) {
                 placeholder="وصف مختصر للتصميم..."
                 rows={3}
                 required
+                className="border-[#D4AF37]/30 focus:border-[#D4AF37]"
               />
             </div>
 
@@ -347,6 +410,8 @@ export default function ShowcaseManager({ token }) {
                 placeholder="الوصف الذي سيستخدمه المستخدم عند اختيار هذا التصميم..."
                 rows={2}
                 required
+                className="border-[#D4AF37]/30 focus:border-[#D4AF37] text-left"
+                dir="ltr"
               />
             </div>
 
@@ -360,7 +425,7 @@ export default function ShowcaseManager({ token }) {
                   value={formData.clothing_type}
                   onValueChange={(value) => setFormData({ ...formData, clothing_type: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-[#D4AF37]/30 focus:border-[#D4AF37]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -382,6 +447,7 @@ export default function ShowcaseManager({ token }) {
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                   placeholder="مثال: أزرق"
+                  className="border-[#D4AF37]/30 focus:border-[#D4AF37]"
                 />
               </div>
             </div>
@@ -397,8 +463,9 @@ export default function ShowcaseManager({ token }) {
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                   placeholder="أضف وسم..."
+                  className="border-[#D4AF37]/30 focus:border-[#D4AF37]"
                 />
-                <Button type="button" onClick={handleAddTag} variant="outline">
+                <Button type="button" onClick={handleAddTag} variant="outline" className="border-[#D4AF37]/50 text-[#D4AF37]">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -410,7 +477,7 @@ export default function ShowcaseManager({ token }) {
                   >
                     {tag}
                     <X
-                      className="w-3 h-3 cursor-pointer hover:text-red-600"
+                      className="w-3 h-3 cursor-pointer hover:text-red-600 transition-colors"
                       onClick={() => handleRemoveTag(tag)}
                     />
                   </span>
@@ -419,35 +486,35 @@ export default function ShowcaseManager({ token }) {
             </div>
 
             {/* Featured */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-[#D4AF37]/10 p-3 rounded-lg border border-[#D4AF37]/20">
               <input
                 type="checkbox"
                 id="is_featured"
                 checked={formData.is_featured}
                 onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
-                className="w-4 h-4"
+                className="w-4 h-4 rounded text-[#D4AF37] focus:ring-[#D4AF37]"
               />
-              <label htmlFor="is_featured" className="text-sm font-medium text-[#3E2723] cursor-pointer">
-                تصميم مميز (Featured)
+              <label htmlFor="is_featured" className="text-sm font-bold text-[#3E2723] cursor-pointer select-none flex items-center gap-1">
+                تعيين كتصميم مميز (Featured) <Star className="w-4 h-4 text-[#D4AF37] fill-current" />
               </label>
             </div>
 
             {/* Submit Buttons */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-gradient-to-l from-[#D4AF37] to-[#B8941F] hover:from-[#B8941F] hover:to-[#9A7A1A] text-white"
-              >
-                {loading ? "جاري الحفظ..." : editingDesign ? "تحديث" : "إضافة"}
-              </Button>
+            <div className="flex gap-3 pt-4 border-t border-gray-100">
               <Button
                 type="button"
                 onClick={handleCloseDialog}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 border-[#D4AF37]/50 text-[#5D4037]"
               >
                 إلغاء
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-gradient-to-l from-[#D4AF37] to-[#B8941F] hover:from-[#B8941F] hover:to-[#9A7A1A] text-white shadow-md"
+              >
+                {loading ? "جاري الحفظ..." : editingDesign ? "حفظ التعديلات" : "إضافة التصميم"}
               </Button>
             </div>
           </form>

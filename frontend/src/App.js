@@ -8,8 +8,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const baseURL = process.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL || 'https://styloraify.com/api';
+const API = baseURL;
 
 // Axios interceptor for auth
 axios.interceptors.request.use((config) => {

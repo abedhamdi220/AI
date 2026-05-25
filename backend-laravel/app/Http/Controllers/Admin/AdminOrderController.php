@@ -13,10 +13,10 @@ class AdminOrderController extends Controller
     public function index()
     {
         try {
-            $orders = Order::orderBy('created_at', 'desc')->get();
+            $paginator = Order::with('user')->orderBy('created_at', 'desc')->paginate(6);
 
-            $ordersWithUsers = $orders->map(function ($order) {
-                $user = User::where('id', $order->user_id)->first();
+            $transformedData = $paginator->getCollection()->map(function ($order) {
+                $user = $order->user;
 
                 return [
                     'id' => $order->id,
@@ -24,7 +24,7 @@ class AdminOrderController extends Controller
                     'user_name' => $user->username ?? 'غير معروف',
                     'user_email' => $user->email ?? 'غير معروف',
                     'design_id' => $order->design_id,
-                    'design_image_base64' => $order->design_image_base64,
+                   'design_image_url' => $order->design_image_url,
                     'prompt' => $order->prompt,
                     'phone_number' => $order->phone_number,
                     'size' => $order->size,
@@ -32,13 +32,15 @@ class AdminOrderController extends Controller
                     'price' => $order->price,
                     'discount' => $order->discount,
                     'final_price' => $order->final_price,
-'coupon_code' => $order->coupon_code,
+                    'coupon_code' => $order->coupon_code,
                     'status' => $order->status,
                     'created_at' => $order->created_at ? $order->created_at->toIso8601String() : null,
                 ];
             });
 
-            return response()->json($ordersWithUsers);
+            $paginator->setCollection($transformedData);
+
+            return response()->json($paginator);
         } catch (\Exception $error) {
             \Log::error('Get Orders Error: ' . $error->getMessage());
             return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة الطلبات'], 500);
@@ -62,8 +64,9 @@ class AdminOrderController extends Controller
 
             $order->status = $status;
             $order->save();
-            
- event(new OrderStatusUpdated($order, $status));
+
+            event(new OrderStatusUpdated($order, $status));
+
             return response()->json([
                 'message' => 'تم تحديث حالة الطلب بنجاح',
                 'status' => $status

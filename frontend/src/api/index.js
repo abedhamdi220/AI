@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // تحديد مسار السيرفر الأساسي (Laravel يضيف كلمة api تلقائياً)
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const baseURL = process.env.REACT_APP_API_URL || 'https://styloraify.com/api';
 
 const api = axios.create({
     baseURL: baseURL,

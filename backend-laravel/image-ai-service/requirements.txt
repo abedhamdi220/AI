@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-dotenv
+Pillow
+pydantic
+# ملاحظة: إذا كانت emergentintegrations مكتبة خارجية أو محلية يجب التأكد من رفعها مع المشروع أو إضافتها هنا

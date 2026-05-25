@@ -25,7 +25,7 @@ class AdminSeeder extends Seeder
                 'designs_limit' => 99999,
                 'designs_used' => 0,
                 'is_unlimited' => true,
-                'email_verified' => true, 
+                'email_verified' => true,
                 'created_at' => now(),
             ]
         );

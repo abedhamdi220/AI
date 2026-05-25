@@ -27,10 +27,8 @@ class ShowcaseController extends Controller
         'title' => $s->title,
         'description' => $s->description,
         'prompt' => $s->prompt,
-       
-        'image_url' => $s->image_url,
 
-        'image_base64' => $s->image_base64 ?? ($s->design ? $s->design->image_base64 : null),
+        'image_url' => $s->image_url,
         'clothing_type' => $s->clothing_type,
         'color' => $s->color,
         'tags' => $s->tags ?? [],
