@@ -19,7 +19,7 @@ export default function Dashboard({ user, onLogout }) {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, designId: null });
   const [templates, setTemplates] = useState([]);
   const [activeView, setActiveView] = useState("templates");
-  
+
   // Design State
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [prompt, setPrompt] = useState("");
@@ -27,10 +27,10 @@ export default function Dashboard({ user, onLogout }) {
   const [logoPreview, setLogoPreview] = useState(null);
   const [userPhotoPreview, setUserPhotoPreview] = useState(null);
   const [enhancing, setEnhancing] = useState(false);
-  
+
   // Preview State (in-page)
   const [generatedDesign, setGeneratedDesign] = useState(null);
-  
+
   // Order State
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -134,7 +134,7 @@ export default function Dashboard({ user, onLogout }) {
     setGenerating(true);
     try {
       const finalPrompt = enhancedPrompt || prompt;
-      
+
       const payload = {
         prompt: finalPrompt,
         clothing_type: selectedTemplate?.type,
@@ -145,14 +145,14 @@ export default function Dashboard({ user, onLogout }) {
       };
 
       const response = await axios.post(`${API}/designs/preview`, payload);
-      
+
       setGeneratedDesign({
         image_base64: response.data.image_base64,
         prompt: finalPrompt,
         clothing_type: selectedTemplate?.type,
         template_id: selectedTemplate?.id
       });
-      
+
       toast.success("تم إنشاء التصميم بنجاح!");
     } catch (error) {
       toast.error(error.response?.data?.detail || "فشل في إنشاء التصميم");
@@ -163,7 +163,7 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleSaveToGallery = async () => {
     if (!generatedDesign) return;
-    
+
     try {
       const response = await axios.post(`${API}/designs/save`, {
         prompt: generatedDesign.prompt,
@@ -173,7 +173,7 @@ export default function Dashboard({ user, onLogout }) {
         logo_base64: logoPreview ? logoPreview.split(',')[1] : null,
         user_photo_base64: userPhotoPreview ? userPhotoPreview.split(',')[1] : null
       });
-      
+
       setDesigns([response.data, ...designs]);
       toast.success("تم حفظ التصميم في معرضك!");
       setActiveView("gallery");
@@ -187,7 +187,7 @@ export default function Dashboard({ user, onLogout }) {
       toast.error("الرجاء إدخال رقم الهاتف");
       return;
     }
-    
+
     if (!orderImagePreview) {
       toast.error("الرجاء رفع صورة");
       return;
@@ -201,7 +201,7 @@ export default function Dashboard({ user, onLogout }) {
         phone_number: phoneNumber,
         uploaded_image_base64: orderImagePreview.split(',')[1]
       });
-      
+
       toast.success("تم إرسال الطلب بنجاح! سنتواصل معك قريباً");
       setShowOrderForm(false);
       setPhoneNumber("");
@@ -226,7 +226,7 @@ export default function Dashboard({ user, onLogout }) {
   const toggleFavorite = async (designId, currentStatus) => {
     try {
       const response = await axios.put(`${API}/designs/${designId}/favorite`);
-      setDesigns(designs.map(d => 
+      setDesigns(designs.map(d =>
         d.id === designId ? { ...d, is_favorite: response.data.is_favorite } : d
       ));
       toast.success(response.data.is_favorite ? "تمت إضافة التصميم للمفضلة" : "تمت إزالة التصميم من المفضلة");
@@ -523,9 +523,9 @@ export default function Dashboard({ user, onLogout }) {
                 <div className="space-y-4">
                   <div className="w-full aspect-square bg-gradient-to-br from-[#D4AF37]/5 to-[#B8941F]/5 rounded-3xl border-2 border-dashed border-[#D4AF37]/30 flex items-center justify-center overflow-hidden">
                     {generatedDesign ? (
-                      <img 
+                      <img
                         src={`data:image/png;base64,${generatedDesign.image_base64}`}
-                        alt="Generated Design" 
+                        alt="Generated Design"
                         className="w-full h-full object-contain"
                         data-testid="generated-design-preview"
                       />
@@ -574,7 +574,7 @@ export default function Dashboard({ user, onLogout }) {
                     <div className="glass rounded-2xl p-6 space-y-4 fade-in" data-testid="order-form">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-xl font-bold text-[#3E2723]">إتمام الطلب</h3>
-                        <button 
+                        <button
                           onClick={() => setShowOrderForm(false)}
                           className="text-[#5D4037] hover:text-[#3E2723]"
                         >
@@ -662,7 +662,7 @@ export default function Dashboard({ user, onLogout }) {
               <h2 className="text-4xl font-bold text-[#3E2723] mb-3">معرض تصاميمي</h2>
               <p className="text-lg text-[#5D4037]">جميع تصاميمك المحفوظة ({designs.length})</p>
             </div>
-            
+
             {loading ? (
               <div className="flex justify-center items-center py-20" data-testid="loading-designs">
                 <Loader2 className="w-12 h-12 text-[#D4AF37] animate-spin" />

@@ -35,7 +35,7 @@ class AdminStatsController extends Controller
             ]);
         } catch (\Exception $error) {
             \Log::error('Get Stats Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب الإحصائيات'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب إحصائيات لوحة التحكم'], 500);
         }
     }
 }

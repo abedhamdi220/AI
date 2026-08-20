@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // تحديد مسار السيرفر الأساسي (Laravel يضيف كلمة api تلقائياً)
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const baseURL = process.env.REACT_APP_API_URL || 'https://styloraify.com/api';
 
 const api = axios.create({
     baseURL: baseURL,
@@ -15,7 +15,7 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         // افترض أنك تحفظ التوكن في LocalStorage
-        const token = localStorage.getItem('token'); 
+        const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }

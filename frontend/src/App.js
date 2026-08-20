@@ -8,8 +8,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const baseURL = process.env.REACT_APP_API_URL || import.meta.env.VITE_API_URL || 'https://styloraify.com/api';
+const API = baseURL;
 
 // Axios interceptor for auth
 axios.interceptors.request.use((config) => {
@@ -34,7 +34,7 @@ function App() {
     // Check for session_id in URL (Google OAuth callback)
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session_id');
-    
+
     if (sessionId) {
       try {
         // Call backend to process Google session
@@ -43,13 +43,13 @@ function App() {
           {},
           { headers: { 'X-Session-ID': sessionId } }
         );
-        
+
         const { access_token, user: userData } = response.data;
         localStorage.setItem('token', access_token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
         setUser(userData);
         setIsAuthenticated(true);
-        
+
         // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } catch (error) {

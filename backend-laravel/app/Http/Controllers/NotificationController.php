@@ -24,7 +24,7 @@ class NotificationController extends Controller
         }
     }
 
-   
+
     public function markAllAsRead(Request $request)
     {
         try {

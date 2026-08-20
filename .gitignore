@@ -77,47 +77,19 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ -e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+
+# Local SDKs and environment files
+android-sdk/
+.env
+.env.*
+backend-laravel/image-ai-service/.env
+
+# Generated application data
+backend-laravel/database/*.sqlite
+backend-laravel/public/build/
+backend-laravel/storage/
+frontend/build/
+
+# Python service runtime artifacts
+backend-laravel/image-ai-service/__pycache__/
+backend-laravel/image-ai-service/.pytest_cache/

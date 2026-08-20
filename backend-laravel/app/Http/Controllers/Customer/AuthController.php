@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers\Customer;
 
-use App\Models\User;
-use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Support\Facades\Hash;
+use App\Events\UserLoggedIn;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Str;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -22,7 +24,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'email_verified' => false,
-                'designs_limit' => 3,
+                'designs_limit' => 5,
                 'designs_used' => 0,
                 'is_admin' => false,
             ]);
@@ -32,8 +34,9 @@ class AuthController extends Controller
             return $this->respondWithToken($token, $user, 201);
 
         } catch (Exception $e) {
+            Log::error('Register Error: ' . $e->getMessage());
             return response()->json([
-                'detail' => 'خطأ في التسجيل: ' . $e->getMessage()
+                'detail' => 'عذراً، حدث خطأ أثناء إنشاء الحساب. يرجى التأكد من صحة البيانات والمحاولة مجدداً.'
             ], 500);
         }
     }
@@ -45,14 +48,15 @@ class AuthController extends Controller
             $credentials = $request->only('username', 'password');
 
             if (!$token = auth('api')->attempt($credentials)) {
-                return response()->json(['detail' => 'بيانات الدخول غير صحيحة'], 401);
+                return response()->json(['detail' => 'بيانات الدخول غير صحيحة، يرجى التأكد من اسم المستخدم وكلمة المرور.'], 401);
             }
-
+  event(new UserLoggedIn(auth('api')->user()));
             return $this->respondWithToken($token, auth('api')->user(), 200);
 
         } catch (Exception $e) {
+            Log::error('Login Error: ' . $e->getMessage());
             return response()->json([
-                'detail' => 'خطأ في تسجيل الدخول: ' . $e->getMessage()
+                'detail' => 'عذراً، حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى لاحقاً.'
             ], 500);
         }
     }
@@ -74,8 +78,9 @@ class AuthController extends Controller
             ]);
 
         } catch (Exception $e) {
+            Log::error('Get User Profile Error: ' . $e->getMessage());
             return response()->json([
-                'detail' => 'خطأ في جلب بيانات المستخدم'
+                'detail' => 'عذراً، تعذر جلب بيانات الحساب في الوقت الحالي. يرجى إعادة تحميل الصفحة.'
             ], 500);
         }
     }
@@ -84,7 +89,7 @@ class AuthController extends Controller
     public function logout()
     {
         auth('api')->logout();
-        return response()->json(['detail' => 'Successfully logged out.']);
+        return response()->json(['detail' => 'تم تسجيل الخروج بنجاح.']);
     }
 
 
@@ -93,7 +98,7 @@ class AuthController extends Controller
         return $this->respondWithToken(auth('api')->refresh(), auth('api')->user());
     }
 
-   
+
     protected function respondWithToken($token, $user, $status = 200)
     {
         return response()->json([

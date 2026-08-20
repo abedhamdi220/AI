@@ -17,7 +17,7 @@ protected $primaryKey = 'id';
         'user_id',
         'title',
         'message',
-        'type', 
+        'type',
         'is_read',
         'created_at',
     ];
@@ -27,7 +27,7 @@ protected $primaryKey = 'id';
         'created_at' => 'datetime',
     ];
 
-  
+
     public static function createNotification($userId, $title, $message, $type = 'info')
     {
         try {

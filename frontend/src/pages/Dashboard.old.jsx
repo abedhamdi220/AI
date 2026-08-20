@@ -21,7 +21,7 @@ export default function Dashboard({ user, onLogout }) {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, designId: null });
   const [templates, setTemplates] = useState([]);
   const [activeView, setActiveView] = useState("templates");
-  
+
   // Design State
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [prompt, setPrompt] = useState("");
@@ -31,7 +31,7 @@ export default function Dashboard({ user, onLogout }) {
   const [userPhotoFile, setUserPhotoFile] = useState(null);
   const [userPhotoPreview, setUserPhotoPreview] = useState(null);
   const [enhancing, setEnhancing] = useState(false);
-  
+
   // Preview State
   const [previewDesign, setPreviewDesign] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -122,7 +122,7 @@ export default function Dashboard({ user, onLogout }) {
     setGenerating(true);
     try {
       const finalPrompt = enhancedPrompt || prompt;
-      
+
       const payload = {
         prompt: finalPrompt,
         clothing_type: selectedTemplate?.type,
@@ -133,7 +133,7 @@ export default function Dashboard({ user, onLogout }) {
       };
 
       const response = await axios.post(`${API}/designs/preview`, payload);
-      
+
       setPreviewDesign({
         image_base64: response.data.image_base64,
         prompt: finalPrompt,
@@ -142,7 +142,7 @@ export default function Dashboard({ user, onLogout }) {
         logo_base64: logoPreview ? logoPreview.split(',')[1] : null,
         user_photo_base64: userPhotoPreview ? userPhotoPreview.split(',')[1] : null
       });
-      
+
       setShowPreview(true);
       toast.success("تم إنشاء التصميم بنجاح!");
     } catch (error) {
@@ -154,7 +154,7 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleSaveDesign = async () => {
     if (!previewDesign) return;
-    
+
     try {
       const response = await axios.post(`${API}/designs/save`, previewDesign);
       setDesigns([response.data, ...designs]);
@@ -181,7 +181,7 @@ export default function Dashboard({ user, onLogout }) {
   const toggleFavorite = async (designId, currentStatus) => {
     try {
       const response = await axios.put(`${API}/designs/${designId}/favorite`);
-      setDesigns(designs.map(d => 
+      setDesigns(designs.map(d =>
         d.id === designId ? { ...d, is_favorite: response.data.is_favorite } : d
       ));
       toast.success(response.data.is_favorite ? "تمت إضافة التصميم للمفضلة" : "تمت إزالة التصميم من المفضلة");
@@ -502,7 +502,7 @@ export default function Dashboard({ user, onLogout }) {
               <h2 className="text-4xl font-bold text-[#3E2723] mb-3">معرض تصاميمي</h2>
               <p className="text-lg text-[#5D4037]">جميع تصاميمك المحفوظة ({designs.length})</p>
             </div>
-            
+
             {loading ? (
               <div className="flex justify-center items-center py-20" data-testid="loading-designs">
                 <Loader2 className="w-12 h-12 text-[#D4AF37] animate-spin" />

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
@@ -12,18 +13,18 @@ class AdminOrderController extends Controller
     public function index()
     {
         try {
-            $orders = Order::orderBy('created_at', 'desc')->get();
+            $paginator = Order::with('user')->orderBy('created_at', 'desc')->paginate(6);
 
-            $ordersWithUsers = $orders->map(function ($order) {
-                $user = User::where('id', $order->user_id)->first();
+            $transformedData = $paginator->getCollection()->map(function ($order) {
+                $user = $order->user;
 
                 return [
                     'id' => $order->id,
                     'user_id' => $order->user_id,
-                    'user_name' => $user->username ?? 'Unknown',
-                    'user_email' => $user->email ?? 'Unknown',
+                    'user_name' => $user->username ?? 'غير معروف',
+                    'user_email' => $user->email ?? 'غير معروف',
                     'design_id' => $order->design_id,
-                    'design_image_base64' => $order->design_image_base64,
+                   'design_image_url' => $order->design_image_url,
                     'prompt' => $order->prompt,
                     'phone_number' => $order->phone_number,
                     'size' => $order->size,
@@ -31,15 +32,18 @@ class AdminOrderController extends Controller
                     'price' => $order->price,
                     'discount' => $order->discount,
                     'final_price' => $order->final_price,
+                    'coupon_code' => $order->coupon_code,
                     'status' => $order->status,
                     'created_at' => $order->created_at ? $order->created_at->toIso8601String() : null,
                 ];
             });
 
-            return response()->json($ordersWithUsers);
+            $paginator->setCollection($transformedData);
+
+            return response()->json($paginator);
         } catch (\Exception $error) {
             \Log::error('Get Orders Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في جلب الطلبات'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء جلب قائمة الطلبات'], 500);
         }
     }
 
@@ -49,17 +53,19 @@ class AdminOrderController extends Controller
             $status = $request->input('status');
 
             if (!in_array($status, ['pending', 'processing', 'completed', 'cancelled'])) {
-                return response()->json(['detail' => 'حالة غير صالحة'], 400);
+                return response()->json(['detail' => 'حالة الطلب المدخلة غير صالحة للنظام'], 400);
             }
 
             $order = Order::where('id', $id)->first();
 
             if (!$order) {
-                return response()->json(['detail' => 'الطلب غير موجود'], 404);
+                return response()->json(['detail' => 'الطلب المراد تحديثه غير موجود'], 404);
             }
 
             $order->status = $status;
             $order->save();
+
+            event(new OrderStatusUpdated($order, $status));
 
             return response()->json([
                 'message' => 'تم تحديث حالة الطلب بنجاح',
@@ -67,7 +73,7 @@ class AdminOrderController extends Controller
             ]);
         } catch (\Exception $error) {
             \Log::error('Update Order Status Error: ' . $error->getMessage());
-            return response()->json(['detail' => 'خطأ في تحديث حالة الطلب'], 500);
+            return response()->json(['detail' => 'حدث خطأ داخلي أثناء تحديث حالة الطلب'], 500);
         }
     }
 }
